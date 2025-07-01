@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import dayjs from 'dayjs';
+import weekday from 'dayjs/plugin/weekday';
+dayjs.extend(weekday);
 
 function StudentPage() {
   const [students, setStudents] = useState([]);
@@ -28,14 +30,54 @@ function StudentPage() {
     setStudents(data);
   };
 
+  const generateLessons = async (student) => {
+    const dayMap = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+    const weekdayIndex = dayMap[form.one_day];
+    if (isNaN(weekdayIndex)) return;
+
+    const lessons = [];
+    let current = dayjs(form.first_day).day(weekdayIndex);
+    if (current.isBefore(dayjs(form.first_day))) current = current.add(1, 'week');
+    const end = current.add(7, 'year');
+
+    while (current.isBefore(end)) {
+      lessons.push({
+        student_id: student.id,
+        date: current.format('YYYY-MM-DD'),
+        time: form.one_class_time,
+        test_time: form.one_test_time,
+        type: '일대일',
+      });
+      current = current.add(1, 'week');
+    }
+
+    if (lessons.length > 0) {
+      await supabase.from('lessons').insert(lessons);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = { ...form };
+
     if (editingId) {
+      // 학생 정보 수정
       await supabase.from('students').update(payload).eq('id', editingId);
+      // 기존 수업 삭제
+      await supabase.from('lessons').delete().eq('student_id', editingId);
+      // 수정된 학생 정보 가져오기
+      const { data: updated } = await supabase.from('students').select('*').eq('id', editingId);
+      if (updated && updated.length > 0) {
+        await generateLessons(updated[0]);
+      }
     } else {
-      await supabase.from('students').insert(payload);
+      // 신규 학생 등록
+      const { data: inserted } = await supabase.from('students').insert(payload).select();
+      if (inserted && inserted.length > 0) {
+        await generateLessons(inserted[0]);
+      }
     }
+
     setForm({
       name: '',
       school: '',

@@ -14,7 +14,7 @@ function KioskPage() {
     const today = dayjs().format('YYYY-MM-DD');
     const nowTime = dayjs();
 
-    // 학생 찾기
+    // 전화번호로 학생 조회
     const { data: students } = await supabase
       .from('students')
       .select('*')
@@ -28,7 +28,7 @@ function KioskPage() {
 
     const student = students[0];
 
-    // 오늘 수업 찾기 (보강 포함)
+    // 오늘 수업 조회 (보강 포함)
     const { data: todayLessons } = await supabase
       .from('lessons')
       .select('*')
@@ -41,18 +41,20 @@ function KioskPage() {
       return;
     }
 
-    // test_time 기준 출석 처리
     let updated = false;
-    for (const lesson of todayLessons) {
-      const [h, m] = lesson.test_time.split(':');
-      const testTime = dayjs().hour(Number(h)).minute(Number(m));
-      const diff = nowTime.diff(testTime, 'minute');
-      const lateText = diff > 0 ? `${diff}분 지각` : '정시 도착';
 
-      if (!lesson.status) {
+    for (const lesson of todayLessons) {
+      if (!lesson.status && lesson.test_time) {
+        const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
+        const diff = nowTime.diff(testTime, 'minute');
+        const isLate = diff > 0;
+        const lateText = isLate ? `${diff}분 지각` : '정시 도착';
+
         await supabase.from('lessons').update({
           status: '출석',
-          memo: nowTime.format('HH:mm') + ', ' + lateText
+          checkin_time: nowTime.format('HH:mm'),
+          late_minutes: isLate ? diff : 0,
+          on_time: !isLate,
         }).eq('id', lesson.id);
 
         setMessage(`출석 완료 (${nowTime.format('HH:mm')}, ${lateText})`);
@@ -81,7 +83,9 @@ function KioskPage() {
         disabled={isLoading}
       />
       <br /><br />
-      <button onClick={handleSubmit} disabled={isLoading}>출석 확인</button>
+      <button onClick={handleSubmit} disabled={isLoading} style={{ fontSize: '18px', padding: '10px 20px' }}>
+        출석 확인
+      </button>
       <p style={{ marginTop: '20px', fontSize: '18px', color: '#245ea8' }}>{message}</p>
     </div>
   );

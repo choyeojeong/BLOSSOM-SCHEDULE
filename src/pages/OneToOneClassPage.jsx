@@ -1,4 +1,4 @@
-// OneToOneClassPage.jsx
+// src/pages/OneToOneClassPage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import dayjs from 'dayjs';
@@ -33,7 +33,6 @@ export default function OneToOneClassPage() {
   const [absentEditId, setAbsentEditId] = useState(null);
   const [absentReasonMap, setAbsentReasonMap] = useState({});
   const [newMakeupMap, setNewMakeupMap] = useState({});
-
   useEffect(() => {
     fetchTeachers();
     fetchStudents();
@@ -65,7 +64,18 @@ export default function OneToOneClassPage() {
   };
 
   const handlePresent = async (lesson) => {
-    await supabase.from('lessons').update({ status: '출석' }).eq('id', lesson.id);
+    const now = dayjs(); // 현재 시간
+    const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
+    const diff = now.diff(testTime, 'minute');
+    const isLate = diff > 0;
+
+    await supabase.from('lessons').update({
+      status: '출석',
+      checkin_time: now.format('HH:mm'),
+      late_minutes: isLate ? diff : 0,
+      on_time: !isLate
+    }).eq('id', lesson.id);
+
     fetchLessons();
   };
 
@@ -103,7 +113,6 @@ export default function OneToOneClassPage() {
     setAbsentEditId(null);
     fetchLessons();
   };
-
   const confirmMoveMakeup = async (lesson) => {
     const { date, test_time, class_time } = makeupInputs;
     const { data: oldMakeup } = await supabase.from('lessons').select('*').eq('id', lesson.makeup_lesson_id).single();
@@ -127,19 +136,21 @@ export default function OneToOneClassPage() {
     await supabase.from('lessons').update({
       status: null,
       absent_reason: null,
-      makeup_lesson_id: null
+      makeup_lesson_id: null,
+      checkin_time: null,
+      late_minutes: null,
+      on_time: null
     }).eq('id', lesson.id);
     fetchLessons();
   };
 
   const saveMemo = async (lessonId, content) => {
-    if (!lessonId) return; // 수업이 없으면 저장 생략
+    if (!lessonId) return;
     await supabase.from('lessons').update({ memo: content }).eq('id', lessonId);
     setMemos(prev => ({ ...prev, [lessonId]: content }));
   };
 
   const slots = dayjs(selectedDate).day() === 6 ? saturdaySlots : weekdaySlots;
-
   return (
     <div style={{ padding: '2rem' }}>
       <button onClick={() => navigate('/dashboard')}>← 뒤로가기</button>
@@ -166,11 +177,17 @@ export default function OneToOneClassPage() {
               <strong>{slot}</strong>
               {lesson && student && (
                 <>
-                  <div style={{ fontWeight: 'bold', cursor: 'pointer' }} onClick={() => navigate(`/student-todo/${student.id}`)}>
+                  <div style={{ fontWeight: 'bold' }}>
                     {student.name} ({student.school} {student.grade})
                   </div>
                   <div>테스트: {lesson.test_time}</div>
                   <div>수업: {lesson.time}</div>
+                  {lesson.checkin_time && (
+                    <div>
+                      출석: {lesson.checkin_time}{' '}
+                      {lesson.on_time ? '정시' : `${lesson.late_minutes}분 지각`}
+                    </div>
+                  )}
                   {lesson.absent_reason && <div>사유: {lesson.absent_reason}</div>}
                   {makeupLesson && (
                     <div>보강일: {makeupLesson.date} {makeupLesson.time}</div>

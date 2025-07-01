@@ -2,10 +2,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
 
 function StudentPage() {
-  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState({
     name: '',
@@ -17,8 +15,6 @@ function StudentPage() {
     one_day: '',
     one_test_time: '',
     one_class_time: '',
-    reading_days: [],
-    reading_times: {},
   });
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -34,11 +30,7 @@ function StudentPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...form,
-      reading_days: form.reading_days,
-      reading_times: form.reading_times,
-    };
+    const payload = { ...form };
     if (editingId) {
       await supabase.from('students').update(payload).eq('id', editingId);
     } else {
@@ -54,8 +46,6 @@ function StudentPage() {
       one_day: '',
       one_test_time: '',
       one_class_time: '',
-      reading_days: [],
-      reading_times: {},
     });
     setEditingId(null);
     fetchStudents();
@@ -69,7 +59,11 @@ function StudentPage() {
   const handleDelete = async (id) => {
     const withdraw = prompt('퇴원일을 YYYY-MM-DD 형식으로 입력하세요');
     if (withdraw) {
-      await supabase.from('lessons').delete().match({ student_id: id }).gte('date', withdraw);
+      await supabase
+        .from('lessons')
+        .delete()
+        .filter('student_id', 'eq', id)
+        .filter('date', 'gte', withdraw);
       await supabase.from('students').delete().eq('id', id);
       fetchStudents();
     }
@@ -85,17 +79,10 @@ function StudentPage() {
     );
   });
 
-  const toggleReadingDay = (day) => {
-    const newDays = form.reading_days.includes(day)
-      ? form.reading_days.filter((d) => d !== day)
-      : [...form.reading_days, day];
-    setForm({ ...form, reading_days: newDays });
-  };
-
   return (
     <div style={{ padding: '20px' }}>
       <h2>학생 등록</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '8px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '8px', maxWidth: '400px' }}>
         <input required placeholder="이름" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input placeholder="학교" value={form.school} onChange={(e) => setForm({ ...form, school: e.target.value })} />
         <input placeholder="학년" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} />
@@ -107,32 +94,6 @@ function StudentPage() {
         <input placeholder="일대일 요일 (예: 월)" value={form.one_day} onChange={(e) => setForm({ ...form, one_day: e.target.value })} />
         <input placeholder="일대일 테스트시간" value={form.one_test_time} onChange={(e) => setForm({ ...form, one_test_time: e.target.value })} />
         <input placeholder="일대일 수업시간" value={form.one_class_time} onChange={(e) => setForm({ ...form, one_class_time: e.target.value })} />
-        <div>
-          <div>독해 요일 선택 (최대 4일)</div>
-          {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
-            <label key={day} style={{ marginRight: '8px' }}>
-              <input
-                type="checkbox"
-                checked={form.reading_days.includes(day)}
-                onChange={() => toggleReadingDay(day)}
-              />{' '}
-              {day}
-            </label>
-          ))}
-        </div>
-        {form.reading_days.map((day) => (
-          <input
-            key={day}
-            placeholder={`${day} 독해시간`}
-            value={form.reading_times[day] || ''}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                reading_times: { ...form.reading_times, [day]: e.target.value },
-              })
-            }
-          />
-        ))}
         <button type="submit">{editingId ? '수정' : '등록'}</button>
       </form>
 

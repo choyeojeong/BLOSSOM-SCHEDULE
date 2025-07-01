@@ -1,0 +1,20 @@
+body {
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+  background-color: #f5f7fa;
+  color: #333;
+}
+
+button {
+  cursor: pointer;
+}
+
+input, select {
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+table {
+  border-collapse: collapse;
+}

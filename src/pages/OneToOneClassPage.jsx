@@ -64,7 +64,7 @@ export default function OneToOneClassPage() {
   };
 
   const handlePresent = async (lesson) => {
-    const now = dayjs(); // 현재 시간
+    const now = dayjs();
     const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
     const diff = now.diff(testTime, 'minute');
     const isLate = diff > 0;
@@ -78,7 +78,6 @@ export default function OneToOneClassPage() {
 
     fetchLessons();
   };
-
   const handleAbsent = (lesson) => {
     setAbsentEditId(lesson.id);
     setAbsentReasonMap(prev => ({ ...prev, [lesson.id]: '' }));
@@ -113,11 +112,11 @@ export default function OneToOneClassPage() {
     setAbsentEditId(null);
     fetchLessons();
   };
+
   const confirmMoveMakeup = async (lesson) => {
     const { date, test_time, class_time } = makeupInputs;
-    const { data: oldMakeup } = await supabase.from('lessons').select('*').eq('id', lesson.makeup_lesson_id).single();
-    await supabase.from('lessons').delete().eq('id', oldMakeup.id);
-    const { data: newMakeup } = await supabase.from('lessons').insert([{
+    await supabase.from('lessons').delete().eq('id', lesson.makeup_lesson_id);
+    const { data } = await supabase.from('lessons').insert([{
       student_id: lesson.student_id,
       date,
       time: class_time,
@@ -125,7 +124,7 @@ export default function OneToOneClassPage() {
       type: '보강',
       original_lesson_id: lesson.id
     }]).select();
-    await supabase.from('lessons').update({ makeup_lesson_id: newMakeup[0].id }).eq('id', lesson.id);
+    await supabase.from('lessons').update({ makeup_lesson_id: data[0].id }).eq('id', lesson.id);
     setMakeupEditId(null);
     setMakeupInputs({});
     fetchLessons();
@@ -149,8 +148,8 @@ export default function OneToOneClassPage() {
     await supabase.from('lessons').update({ memo: content }).eq('id', lessonId);
     setMemos(prev => ({ ...prev, [lessonId]: content }));
   };
-
   const slots = dayjs(selectedDate).day() === 6 ? saturdaySlots : weekdaySlots;
+
   return (
     <div style={{ padding: '2rem' }}>
       <button onClick={() => navigate('/dashboard')}>← 뒤로가기</button>
@@ -166,11 +165,19 @@ export default function OneToOneClassPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1rem' }}>
         {slots.map((slot) => {
-          const lesson = lessons.find(l => l.date === selectedDate && l.time === slot && studentsMap[l.student_id]?.teacher === selectedTeacher);
-          const student = lesson ? studentsMap[lesson.student_id] : null;
+          const lesson = lessons.find(l =>
+            l.date === selectedDate &&
+            l.time === slot &&
+            (studentsMap[l.student_id]?.teacher === selectedTeacher || l.teacher === selectedTeacher)
+          );
+
+          const student = lesson?.student_id ? studentsMap[lesson.student_id] : null;
           const makeupLesson = lessons.find(l => l.original_lesson_id === lesson?.id);
           const originalLesson = lessons.find(l => l.id === lesson?.original_lesson_id);
-          const bgColor = lesson?.type === '보강' ? '#fff9cc' : lesson?.status === '결석' ? '#ffe5e5' : lesson?.status === '출석' ? '#e0f7fa' : lesson ? '#f0f0f0' : '#ffffff';
+          const bgColor = lesson?.type === '보강' ? '#fff9cc' :
+                          lesson?.status === '결석' ? '#ffe5e5' :
+                          lesson?.status === '출석' ? '#e0f7fa' :
+                          lesson ? '#f0f0f0' : '#ffffff';
 
           return (
             <div key={slot} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', backgroundColor: bgColor }}>
@@ -178,32 +185,36 @@ export default function OneToOneClassPage() {
               {lesson && student && (
                 <>
                   <div style={{ fontWeight: 'bold' }}>
-                    {student.name} ({student.school} {student.grade})
+                    <button
+                      onClick={() => navigate(`/student-todo/${student.id}`)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        margin: 0,
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        color: '#245ea8',
+                      }}
+                    >
+                      {student.name} ({student.school} {student.grade})
+                    </button>
                   </div>
                   <div>테스트: {lesson.test_time}</div>
                   <div>수업: {lesson.time}</div>
-                  {lesson.checkin_time && (
-                    <div>
-                      출석: {lesson.checkin_time}{' '}
-                      {lesson.on_time ? '정시' : `${lesson.late_minutes}분 지각`}
-                    </div>
-                  )}
+                  {lesson.checkin_time && <div>출석: {lesson.checkin_time} {lesson.on_time ? '정시' : `${lesson.late_minutes}분 지각`}</div>}
                   {lesson.absent_reason && <div>사유: {lesson.absent_reason}</div>}
-                  {makeupLesson && (
-                    <div>보강일: {makeupLesson.date} {makeupLesson.time}</div>
-                  )}
-                  {originalLesson && (
-                    <div>원결석일: {originalLesson.date} {originalLesson.time}</div>
-                  )}
+                  {makeupLesson && <div>보강일: {makeupLesson.date} {makeupLesson.time}</div>}
+                  {originalLesson && <div>원결석일: {originalLesson.date} {originalLesson.time}</div>}
                   {lesson.status === null && (
                     <>
                       <button onClick={() => handlePresent(lesson)}>출석</button>
                       <button onClick={() => handleAbsent(lesson)}>결석</button>
                     </>
                   )}
-                  {lesson.status && (
-                    <button onClick={() => resetLesson(lesson)}>초기화</button>
-                  )}
+                  {lesson.status && <button onClick={() => resetLesson(lesson)}>초기화</button>}
                   {lesson.status === '결석' && lesson.makeup_lesson_id && (
                     <>
                       <button onClick={() => setMakeupEditId(lesson.id)}>보강이동</button>

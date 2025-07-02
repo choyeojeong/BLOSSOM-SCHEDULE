@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 function DashboardPage() {
   const navigate = useNavigate();
 
-  // 로그인 상태 확인
   useEffect(() => {
     const isLoggedIn = localStorage.getItem('isLoggedIn');
     if (isLoggedIn !== 'true') {
@@ -27,6 +26,9 @@ function DashboardPage() {
         </button>
         <button onClick={() => navigate('/one-to-one')} style={styles.button}>
           🗓️ 수업관리
+        </button>
+        <button onClick={() => navigate('/full-schedule')} style={styles.button}>
+          🧾 전체시간표
         </button>
       </div>
       <button onClick={handleLogout} style={styles.logout}>
@@ -55,6 +57,8 @@ const styles = {
     display: 'flex',
     gap: '30px',
     marginBottom: '40px',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   button: {
     backgroundColor: '#245ea8',

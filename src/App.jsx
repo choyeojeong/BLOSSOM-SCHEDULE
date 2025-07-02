@@ -6,6 +6,7 @@ import StudentPage from './pages/StudentPage.jsx';
 import OneToOneClassPage from './pages/OneToOneClassPage.jsx';
 import KioskPage from './pages/KioskPage.jsx';
 import StudentTodoPage from './pages/StudentTodoPage.jsx';
+import FullSchedulePage from './pages/FullSchedulePage.jsx';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/one-to-one" element={<OneToOneClassPage />} />
         <Route path="/kiosk" element={<KioskPage />} />
         <Route path="/student-todo/:id" element={<StudentTodoPage />} />
+        <Route path="/full-schedule" element={<FullSchedulePage />} />
       </Routes>
     </BrowserRouter>
   );

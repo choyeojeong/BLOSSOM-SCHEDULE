@@ -130,23 +130,36 @@ export default function StudentTodoPage() {
     fetchMemos();
   };
 
-  const generateMessage = () => {
-    const dates = getDatesInRange();
-    let msg = `[${student?.name} 학생 다음주차 할 일 (🔥)]\n\n`;
-    dates.forEach((d) => {
+const generateMessage = () => {
+  const dates = getDatesInRange();
+  let msg = `[${student?.name}학생 다음 한주간 할 일🔥]\n\n`;
+
+  dates.forEach((d) => {
+    if (todos[d]?.some((t) => t.content)) {
       const weekday = WEEKDAYS_KR[dayjs(d).day()];
       const mmdd = dayjs(d).format('MM/DD');
-      if (todos[d]?.length > 0) {
-        msg += `${weekday} (${mmdd})\n`;
-        todos[d].forEach((t) => {
-          msg += `- ${t.content}\n`;
-        });
-        msg += '\n';
-      }
-    });
-    msg += '[강의목록]\n\n[단어시험]\n60문제, -3컷';
-    setMessage(msg);
-  };
+      msg += `${weekday} (${mmdd})\n`;
+      todos[d].forEach((t) => {
+        if (t.content) msg += `- ${t.content}\n`;
+      });
+      msg += '\n';
+    }
+  });
+
+  msg += `[강의목록]\n`;
+  msg += `▶수업하는 날 전까지 듣고 복습!\n\n`;
+
+  msg += `[단어시험]\n`;
+  msg += `▶단어시험 보는 날 전까지 다 외워오기!\n`;
+  msg += `60문제, -3컷\n\n`;
+
+  msg += `▼공부방법▼\n`;
+  msg += `① 단어는 매일 조금씩 공부하는 게 가장 효율적입니다.\n`;
+  msg += `② 강의수강 시 필기는 3색볼펜+형광펜 활용\n`;
+  msg += `③ 강의 듣는 건 기본 + 필기한 부분 다시 공부하는 시간 필수 !`;
+
+  setMessage(msg);
+};
 
   const copyMessage = async () => {
     await navigator.clipboard.writeText(message);

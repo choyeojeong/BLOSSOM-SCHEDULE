@@ -1,3 +1,4 @@
+// src/pages/StudentTodoPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -18,12 +19,24 @@ export default function StudentTodoPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
-  const [startDate, setStartDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [endDate, setEndDate] = useState(dayjs().add(7, 'day').format('YYYY-MM-DD'));
+  const [startDate, setStartDate] = useState(() => {
+    return localStorage.getItem('todoStartDate') || dayjs().format('YYYY-MM-DD');
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return localStorage.getItem('todoEndDate') || dayjs().add(7, 'day').format('YYYY-MM-DD');
+  });
   const [todos, setTodos] = useState([]);
   const [memos, setMemos] = useState({});
   const [newTodos, setNewTodos] = useState({});
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('todoStartDate', startDate);
+  }, [startDate]);
+
+  useEffect(() => {
+    localStorage.setItem('todoEndDate', endDate);
+  }, [endDate]);
 
   useEffect(() => {
     fetchStudent();
@@ -31,6 +44,7 @@ export default function StudentTodoPage() {
 
   useEffect(() => {
     fetchTodos();
+    fetchMemos();
   }, [startDate, endDate, id]);
 
   const fetchStudent = async () => {
@@ -47,13 +61,25 @@ export default function StudentTodoPage() {
       .lte('date', endDate);
 
     const grouped = {};
-    const memoData = {};
     data.forEach((todo) => {
       if (!grouped[todo.date]) grouped[todo.date] = [];
       grouped[todo.date].push(todo);
-      if (todo.memo) memoData[todo.date] = todo.memo;
     });
     setTodos(grouped);
+  };
+
+  const fetchMemos = async () => {
+    const { data } = await supabase
+      .from('memos')
+      .select('*')
+      .eq('student_id', id)
+      .gte('date', startDate)
+      .lte('date', endDate);
+
+    const memoData = {};
+    data.forEach((memo) => {
+      memoData[memo.date] = memo.content;
+    });
     setMemos(memoData);
   };
 
@@ -88,26 +114,32 @@ export default function StudentTodoPage() {
   };
 
   const saveMemo = async (date) => {
-    const memo = memos[date] || '';
-    const existing = todos[date]?.find((t) => t.memo !== undefined);
+    const content = memos[date] || '';
+    const { data: existing } = await supabase
+      .from('memos')
+      .select('*')
+      .eq('student_id', id)
+      .eq('date', date)
+      .single();
+
     if (existing) {
-      await supabase.from('todos').update({ memo }).eq('id', existing.id);
+      await supabase.from('memos').update({ content }).eq('id', existing.id);
     } else {
-      await supabase.from('todos').insert([{ student_id: id, date, memo }]);
+      await supabase.from('memos').insert([{ student_id: id, date, content }]);
     }
-    fetchTodos();
+    fetchMemos();
   };
 
   const generateMessage = () => {
     const dates = getDatesInRange();
-    let msg = `[다음주차 할 일 (🔥)]\n\n`;
+    let msg = `[${student?.name} 학생 다음주차 할 일 (🔥)]\n\n`;
     dates.forEach((d) => {
-      if (todos[d] && todos[d].length > 0) {
-        const weekday = WEEKDAYS_KR[dayjs(d).day()];
-        const mmdd = dayjs(d).format('MM/DD');
-        msg += `${weekday}요일 (${mmdd})\n`;
+      const weekday = WEEKDAYS_KR[dayjs(d).day()];
+      const mmdd = dayjs(d).format('MM/DD');
+      if (todos[d]?.length > 0) {
+        msg += `${weekday} (${mmdd})\n`;
         todos[d].forEach((t) => {
-          if (t.content) msg += `- ${t.content}\n`;
+          msg += `- ${t.content}\n`;
         });
         msg += '\n';
       }
@@ -118,14 +150,14 @@ export default function StudentTodoPage() {
 
   const copyMessage = async () => {
     await navigator.clipboard.writeText(message);
-    alert('복사되었습니다');
+    alert('복사되었습니다!');
   };
 
   return (
     <div style={{ padding: '2rem' }}>
       <button onClick={() => navigate(-1)}>← 뒤로가기</button>
       <h2>{student?.name} 학생 할일 관리</h2>
-      <div>
+      <div style={{ marginBottom: '1rem' }}>
         시작일:{' '}
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         종료일:{' '}
@@ -140,32 +172,69 @@ export default function StudentTodoPage() {
         }}
       >
         {getDatesInRange().map((date) => (
-          <div key={date} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem' }}>
+          <div
+            key={date}
+            style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem' }}
+          >
             <strong>{dayjs(date).format('MM/DD (dd)')}</strong>
-            <ul>
-              {(todos[date] || []).filter(t => t.content).map((todo) => (
-                <li key={todo.id}>
-                  <input type="checkbox" checked={todo.done} onChange={() => toggleDone(todo)} /> {todo.content}
-                  <button onClick={() => deleteTodo(todo)}>❌</button>
+            <ul style={{ paddingLeft: '1rem' }}>
+              {(todos[date] || []).map((todo) => (
+                <li
+                  key={todo.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '4px',
+                  }}
+                >
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={todo.done}
+                      onChange={() => toggleDone(todo)}
+                    />{' '}
+                    {todo.content}
+                  </span>
+                  <button
+                    onClick={() => deleteTodo(todo)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'red',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ❌
+                  </button>
                 </li>
               ))}
             </ul>
-            <input
-              type="text"
-              value={newTodos[date] || ''}
-              onChange={(e) => setNewTodos((prev) => ({ ...prev, [date]: e.target.value }))}
-              placeholder="할일 추가"
-            />
-            <button onClick={() => addTodo(date)}>추가</button>
+            <div style={{ marginTop: '0.5rem' }}>
+              <input
+                type="text"
+                value={newTodos[date] || ''}
+                onChange={(e) =>
+                  setNewTodos((prev) => ({ ...prev, [date]: e.target.value }))
+                }
+                placeholder="할일 추가"
+                style={{ width: '100%' }}
+              />
+              <button onClick={() => addTodo(date)} style={{ marginTop: '4px' }}>
+                추가
+              </button>
+            </div>
             <div style={{ marginTop: '0.5rem' }}>
               메모: <br />
               <textarea
                 value={memos[date] || ''}
-                onChange={(e) => setMemos((prev) => ({ ...prev, [date]: e.target.value }))}
+                onChange={(e) =>
+                  setMemos((prev) => ({ ...prev, [date]: e.target.value }))
+                }
+                onBlur={() => saveMemo(date)} // 🆕 포커스 잃을 때 자동 저장
                 rows={3}
                 style={{ width: '100%' }}
               />
-              <button onClick={() => saveMemo(date)}>메모 저장</button>
             </div>
           </div>
         ))}
@@ -173,8 +242,18 @@ export default function StudentTodoPage() {
       <div style={{ marginTop: '2rem' }}>
         <h3>📋 자동 메시지 생성</h3>
         <button onClick={generateMessage}>메시지 생성</button>
-        <button onClick={copyMessage}>복사하기</button>
-        <pre style={{ whiteSpace: 'pre-wrap', marginTop: '1rem', background: '#f8f8f8', padding: '1rem' }}>
+        <button onClick={copyMessage} style={{ marginLeft: '8px' }}>
+          복사하기
+        </button>
+        <pre
+          style={{
+            whiteSpace: 'pre-wrap',
+            marginTop: '1rem',
+            background: '#f8f8f8',
+            padding: '1rem',
+            borderRadius: '8px',
+          }}
+        >
           {message}
         </pre>
       </div>

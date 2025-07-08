@@ -44,28 +44,34 @@ function DashboardPage() {
       <div style={styles.box}>
         <h1 style={styles.title}>📘 블라썸에듀 산본 수업시간표</h1>
         <button
+          style={styles.button}
           onClick={() => navigate("/students")}
-          style={styles.button}
         >
-          👩‍🏫 학생관리
+          👩‍🎓 학생관리
         </button>
         <button
+          style={styles.button}
           onClick={() => navigate("/one-to-one")}
-          style={styles.button}
         >
-          📅 일대일수업관리
+          📖 일대일수업관리
         </button>
         <button
+          style={styles.button}
           onClick={() => navigate("/reading")}
-          style={styles.button}
         >
-          📖 독해수업관리
+          📚 독해수업관리
         </button>
         <button
-          onClick={() => navigate("/kiosk")}
           style={styles.button}
+          onClick={() => navigate("/kiosk")}
         >
           📝 키오스크
+        </button>
+        <button
+          style={styles.button}
+          onClick={() => navigate("/full-schedule")}
+        >
+          🗓 전체시간표
         </button>
       </div>
     </div>

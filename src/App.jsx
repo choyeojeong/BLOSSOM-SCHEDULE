@@ -5,6 +5,7 @@ import StudentPage from "./pages/StudentPage";
 import OneToOneClassPage from "./pages/OneToOneClassPage";
 import ReadingClassPage from "./pages/ReadingClassPage";
 import KioskPage from "./pages/KioskPage";
+import StudentTodoPage from "./pages/StudentTodoPage"; // ✅ 추가
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/one-to-one" element={<OneToOneClassPage />} />
         <Route path="/reading" element={<ReadingClassPage />} />
         <Route path="/kiosk" element={<KioskPage />} />
+        <Route path="/student-todo/:id" element={<StudentTodoPage />} /> {/* ✅ 추가 */}
       </Routes>
     </BrowserRouter>
   );

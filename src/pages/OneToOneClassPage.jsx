@@ -25,20 +25,17 @@ export default function OneToOneClassPage() {
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
   const [selectedTeacher, setSelectedTeacher] = useState('');
-const [selectedDate, setSelectedDate] = useState(() => {
-  const savedDate = localStorage.getItem('selectedDate');
-  return savedDate || dayjs().format('YYYY-MM-DD');
-});
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const savedDate = localStorage.getItem('selectedDate');
+    return savedDate || dayjs().format('YYYY-MM-DD');
+  });
   const [lessons, setLessons] = useState([]);
   const [studentsMap, setStudentsMap] = useState({});
   const [memos, setMemos] = useState({});
-  const [makeupEditId, setMakeupEditId] = useState(null);
-  const [makeupInputs, setMakeupInputs] = useState({});
   const [absentEditId, setAbsentEditId] = useState(null);
   const [absentReasonMap, setAbsentReasonMap] = useState({});
   const [newMakeupMap, setNewMakeupMap] = useState({});
 
-  // 🆕 초기 상태 로딩 시 localStorage 값 불러오기
   useEffect(() => {
     const savedTeacher = localStorage.getItem('selectedTeacher');
     const savedDate = localStorage.getItem('selectedDate');
@@ -55,7 +52,6 @@ const [selectedDate, setSelectedDate] = useState(() => {
     if (selectedTeacher && selectedDate) fetchLessons();
   }, [selectedTeacher, selectedDate]);
 
-  // 🆕 상태 변경 시 localStorage에 저장
   useEffect(() => {
     if (selectedTeacher) {
       localStorage.setItem('selectedTeacher', selectedTeacher);
@@ -148,31 +144,6 @@ const [selectedDate, setSelectedDate] = useState(() => {
     fetchLessons();
   };
 
-  const confirmMoveMakeup = async (lesson) => {
-    const { date, test_time, class_time } = makeupInputs;
-    await supabase.from('lessons').delete().eq('id', lesson.makeup_lesson_id);
-    const { data } = await supabase
-      .from('lessons')
-      .insert([
-        {
-          student_id: lesson.student_id,
-          date,
-          time: class_time,
-          test_time,
-          type: '보강',
-          original_lesson_id: lesson.id,
-        },
-      ])
-      .select();
-    await supabase
-      .from('lessons')
-      .update({ makeup_lesson_id: data[0].id })
-      .eq('id', lesson.id);
-    setMakeupEditId(null);
-    setMakeupInputs({});
-    fetchLessons();
-  };
-
   const resetLesson = async (lesson) => {
     if (lesson.makeup_lesson_id)
       await supabase.from('lessons').delete().eq('id', lesson.makeup_lesson_id);
@@ -188,30 +159,6 @@ const [selectedDate, setSelectedDate] = useState(() => {
       })
       .eq('id', lesson.id);
     fetchLessons();
-  };
-
-  const handleAddTask = async (slot) => {
-    const taskContent = prompt('추가할 업무 내용을 입력하세요:');
-    if (!taskContent) return;
-
-    await supabase.from('lessons').insert([
-      {
-        teacher: selectedTeacher,
-        date: selectedDate,
-        time: slot,
-        type: '업무',
-        memo: taskContent,
-      },
-    ]);
-
-    fetchLessons();
-  };
-
-  const handleDeleteTask = async (taskId) => {
-    if (window.confirm('이 업무를 삭제하시겠습니까?')) {
-      await supabase.from('lessons').delete().eq('id', taskId);
-      fetchLessons();
-    }
   };
 
   const slots = dayjs(selectedDate).day() === 6 ? saturdaySlots : weekdaySlots;
@@ -258,16 +205,6 @@ const [selectedDate, setSelectedDate] = useState(() => {
           );
 
           const student = lesson?.student_id ? studentsMap[lesson.student_id] : null;
-          const tasks = lessons.filter(
-            (l) =>
-              l.type === '업무' &&
-              l.date === selectedDate &&
-              l.time === slot &&
-              l.teacher === selectedTeacher
-          );
-
-          const makeupLesson = lessons.find((l) => l.original_lesson_id === lesson?.id);
-          const originalLesson = lessons.find((l) => l.id === lesson?.original_lesson_id);
 
           const bgColor =
             lesson?.type === '보강'
@@ -291,54 +228,7 @@ const [selectedDate, setSelectedDate] = useState(() => {
               }}
             >
               <strong>{slot}</strong>
-              <button
-                onClick={() => handleAddTask(slot)}
-                style={{
-                  marginTop: '4px',
-                  padding: '2px 6px',
-                  fontSize: '12px',
-                  backgroundColor: '#bbdefb',
-                  border: '1px solid #90caf9',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                📌 업무 추가
-              </button>
 
-              {/* 업무 표시 */}
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    backgroundColor: '#e3f2fd',
-                    marginTop: '4px',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  📌 {task.memo}
-                  <button
-                    onClick={() => handleDeleteTask(task.id)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'red',
-                      cursor: 'pointer',
-                      marginLeft: '8px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    🗑
-                  </button>
-                </div>
-              ))}
-
-              {/* 수업 표시 */}
               {lesson && student && (
                 <>
                   <div style={{ fontWeight: 'bold' }}>
@@ -368,16 +258,6 @@ const [selectedDate, setSelectedDate] = useState(() => {
                     </div>
                   )}
                   {lesson.absent_reason && <div>사유: {lesson.absent_reason}</div>}
-                  {makeupLesson && (
-                    <div>
-                      보강일: {makeupLesson.date} {makeupLesson.time}
-                    </div>
-                  )}
-                  {originalLesson && (
-                    <div>
-                      원결석일: {originalLesson.date} {originalLesson.time}
-                    </div>
-                  )}
 
                   {lesson.status === null && (
                     <>
@@ -385,6 +265,92 @@ const [selectedDate, setSelectedDate] = useState(() => {
                       <button onClick={() => handleAbsent(lesson)}>결석</button>
                     </>
                   )}
+
+                  {absentEditId === lesson.id && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <label>
+                        결석 사유:
+                        <input
+                          type="text"
+                          value={absentReasonMap[lesson.id] || ''}
+                          onChange={(e) =>
+                            setAbsentReasonMap((prev) => ({
+                              ...prev,
+                              [lesson.id]: e.target.value,
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <label>
+                        보강 날짜:
+                        <input
+                          type="date"
+                          value={newMakeupMap[lesson.id]?.date || ''}
+                          onChange={(e) =>
+                            setNewMakeupMap((prev) => ({
+                              ...prev,
+                              [lesson.id]: {
+                                ...prev[lesson.id],
+                                date: e.target.value,
+                              },
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <label>
+                        보강 테스트시간:
+                        <input
+                          type="text"
+                          placeholder="예: 16:00"
+                          value={newMakeupMap[lesson.id]?.test_time || ''}
+                          onChange={(e) =>
+                            setNewMakeupMap((prev) => ({
+                              ...prev,
+                              [lesson.id]: {
+                                ...prev[lesson.id],
+                                test_time: e.target.value,
+                              },
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <label>
+                        보강 수업시간:
+                        <input
+                          type="text"
+                          placeholder="예: 16:40-17:20"
+                          value={newMakeupMap[lesson.id]?.class_time || ''}
+                          onChange={(e) =>
+                            setNewMakeupMap((prev) => ({
+                              ...prev,
+                              [lesson.id]: {
+                                ...prev[lesson.id],
+                                class_time: e.target.value,
+                              },
+                            }))
+                          }
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <button
+                        onClick={() => saveAbsentAndMakeup(lesson)}
+                        style={{
+                          marginTop: '8px',
+                          backgroundColor: '#ffcccb',
+                          border: '1px solid #f44336',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        결석 처리
+                      </button>
+                    </div>
+                  )}
+
                   {lesson.status && (
                     <button onClick={() => resetLesson(lesson)}>초기화</button>
                   )}
@@ -402,9 +368,9 @@ const [selectedDate, setSelectedDate] = useState(() => {
                       [lesson?.id || slot]: e.target.value,
                     }))
                   }
-                  onBlur={(e) => {
+                  onBlur={async (e) => {
                     if (lesson) {
-                      supabase
+                      await supabase
                         .from('lessons')
                         .update({ memo: e.target.value })
                         .eq('id', lesson.id);

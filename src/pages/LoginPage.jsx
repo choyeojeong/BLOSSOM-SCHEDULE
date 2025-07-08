@@ -1,54 +1,5 @@
-// src/pages/LoginPage.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-function LoginPage() {
-  const navigate = useNavigate();
-  const [id, setId] = useState('');
-  const [pw, setPw] = useState('');
-  const [error, setError] = useState('');
-
-  // 이미 로그인 상태라면 자동 이동
-  useEffect(() => {
-    const savedLogin = localStorage.getItem('isLoggedIn');
-    if (savedLogin === 'true') {
-      navigate('/dashboard');
-    }
-  }, []);
-
-  const handleLogin = () => {
-    if (id === 'sanbon' && pw === '471466') {
-      localStorage.setItem('isLoggedIn', 'true');
-      navigate('/dashboard');
-    } else {
-      setError('아이디 또는 비밀번호가 잘못되었습니다.');
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <div style={styles.box}>
-        <h2 style={styles.title}>블라썸에듀 산본<br />일대일수업시간표</h2>
-        <input
-          type="text"
-          placeholder="아이디"
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-          style={styles.input}
-        />
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          style={styles.input}
-        />
-        <button onClick={handleLogin} style={styles.button}>로그인</button>
-        {error && <p style={styles.error}>{error}</p>}
-      </div>
-    </div>
-  );
-}
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const styles = {
   container: {
@@ -69,6 +20,8 @@ const styles = {
   title: {
     marginBottom: '24px',
     color: '#245ea8',
+    fontSize: '20px',
+    fontWeight: 'bold',
   },
   input: {
     display: 'block',
@@ -88,11 +41,53 @@ const styles = {
     fontSize: '16px',
     border: 'none',
     borderRadius: '6px',
+    cursor: 'pointer',
   },
   error: {
     color: 'red',
     marginTop: '10px',
   },
 };
+
+function LoginPage() {
+  const navigate = useNavigate();
+  const [id, setId] = useState("");
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState("");
+
+  const handleLogin = () => {
+    if (id === "sanbon" && pw === "471466") {
+      navigate("/dashboard");
+    } else {
+      setError("아이디 또는 비밀번호가 잘못되었습니다.");
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.box}>
+        <h1 style={styles.title}>블라썸에듀 산본 수업시간표</h1>
+        <input
+          type="text"
+          placeholder="아이디"
+          value={id}
+          onChange={(e) => setId(e.target.value)}
+          style={styles.input}
+        />
+        <input
+          type="password"
+          placeholder="비밀번호"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          style={styles.input}
+        />
+        <button onClick={handleLogin} style={styles.button}>
+          로그인
+        </button>
+        {error && <div style={styles.error}>{error}</div>}
+      </div>
+    </div>
+  );
+}
 
 export default LoginPage;

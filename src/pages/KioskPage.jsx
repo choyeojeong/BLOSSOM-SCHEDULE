@@ -1,92 +1,150 @@
-// src/pages/KioskPage.jsx
-import { useState } from 'react';
-import { supabase } from '../utils/supabaseClient';
-import dayjs from 'dayjs';
+import { useState } from "react";
+import { supabase } from "../utils/supabaseClient";
+import dayjs from "dayjs";
+
+const styles = {
+  container: {
+    backgroundColor: '#eef3f9',
+    height: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  box: {
+    backgroundColor: 'white',
+    padding: '40px',
+    borderRadius: '12px',
+    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+    textAlign: 'center',
+    width: '320px',
+  },
+  title: {
+    marginBottom: '24px',
+    color: '#245ea8',
+    fontSize: '20px',
+    fontWeight: 'bold',
+  },
+  input: {
+    display: 'block',
+    width: '100%',
+    marginBottom: '12px',
+    padding: '10px',
+    fontSize: '16px',
+    border: '1px solid #ccc',
+    borderRadius: '6px',
+  },
+  button: {
+    width: '100%',
+    padding: '10px',
+    backgroundColor: '#245ea8',
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: '16px',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  success: {
+    marginTop: '12px',
+    color: 'green',
+  },
+  error: {
+    marginTop: '12px',
+    color: 'red',
+  },
+};
 
 function KioskPage() {
-  const [phone, setPhone] = useState('');
-  const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = async () => {
-    setIsLoading(true);
-    setMessage('');
-    const today = dayjs().format('YYYY-MM-DD');
-    const nowTime = dayjs();
+  const handleCheckIn = async () => {
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("*")
+      .eq("phone", phone)
+      .single();
 
-    // 전화번호로 학생 조회
-    const { data: students } = await supabase
-      .from('students')
-      .select('*')
-      .eq('phone', phone.trim());
-
-    if (!students || students.length === 0) {
-      setMessage('학생을 찾을 수 없습니다.');
-      setIsLoading(false);
+    if (studentError || !student) {
+      setMessage("❌ 학생 정보를 찾을 수 없습니다.");
       return;
     }
 
-    const student = students[0];
+    const today = dayjs().format("YYYY-MM-DD");
 
-    // 오늘 수업 조회 (보강 포함)
-    const { data: todayLessons } = await supabase
-      .from('lessons')
-      .select('*')
-      .eq('student_id', student.id)
-      .eq('date', today);
+    // ✅ 오늘 날짜의 모든 수업 가져오기
+    const { data: lessons, error: lessonsError } = await supabase
+      .from("lessons")
+      .select("*")
+      .eq("student_id", student.id)
+      .eq("date", today);
 
-    if (!todayLessons || todayLessons.length === 0) {
-      setMessage('오늘 수업이 없습니다.');
-      setIsLoading(false);
+    if (lessonsError || !lessons || lessons.length === 0) {
+      setMessage("❌ 오늘 수업이 없습니다.");
       return;
     }
 
-    let updated = false;
+    const now = dayjs().format("HH:mm");
+    const endTime = dayjs().add(1, "hour").add(30, "minute").format("HH:mm");
 
-    for (const lesson of todayLessons) {
-      if (!lesson.status && lesson.test_time) {
-        const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
-        const diff = nowTime.diff(testTime, 'minute');
-        const isLate = diff > 0;
-        const lateText = isLate ? `${diff}분 지각` : '정시 도착';
-
-        await supabase.from('lessons').update({
-          status: '출석',
-          checkin_time: nowTime.format('HH:mm'),
-          late_minutes: isLate ? diff : 0,
-          on_time: !isLate,
-        }).eq('id', lesson.id);
-
-        setMessage(`출석 완료 (${nowTime.format('HH:mm')}, ${lateText})`);
-        updated = true;
-        break;
+    // ✅ 모든 수업 출석 처리 (일대일과 독해 구분)
+    const updates = lessons.map((lesson) => {
+      if (lesson.type === "독해") {
+        // 🔥 독해수업: 클릭 시각 +1시간30분 자동
+        return supabase
+          .from("lessons")
+          .update({
+            status: "출석",
+            checkin_time: now,
+            end_time: endTime,
+          })
+          .eq("id", lesson.id);
+      } else if (lesson.type === "일대일") {
+        // 📘 일대일수업: 테스트시간 기준, 시간 변경 없이 출석만 처리
+        return supabase
+          .from("lessons")
+          .update({
+            status: "출석",
+          })
+          .eq("id", lesson.id);
       }
+    });
+
+    try {
+      await Promise.all(updates);
+      setMessage(
+        `✅ ${student.name}님 오늘 ${lessons.length}개 수업 출석 처리되었습니다.`
+      );
+    } catch (err) {
+      console.error(err);
+      setMessage("❌ 출석 처리 중 오류 발생");
     }
 
-    if (!updated) {
-      setMessage('이미 출석 처리된 수업이거나 모든 수업이 결석 상태입니다.');
-    }
-
-    setIsLoading(false);
-    setPhone('');
+    setPhone(""); // 입력 초기화
   };
 
   return (
-    <div style={{ padding: '40px', textAlign: 'center' }}>
-      <h2>📲 키오스크 출석</h2>
-      <input
-        type="text"
-        value={phone}
-        placeholder="전화번호 입력"
-        onChange={(e) => setPhone(e.target.value)}
-        style={{ fontSize: '20px', padding: '10px', width: '250px' }}
-        disabled={isLoading}
-      />
-      <br /><br />
-      <button onClick={handleSubmit} disabled={isLoading} style={{ fontSize: '18px', padding: '10px 20px' }}>
-        출석 확인
-      </button>
-      <p style={{ marginTop: '20px', fontSize: '18px', color: '#245ea8' }}>{message}</p>
+    <div style={styles.container}>
+      <div style={styles.box}>
+        <h1 style={styles.title}>📱 출석 체크</h1>
+        <input
+          type="text"
+          placeholder="전화번호 입력"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          style={styles.input}
+        />
+        <button onClick={handleCheckIn} style={styles.button}>
+          출석
+        </button>
+        {message && (
+          <div
+            style={message.startsWith("✅") ? styles.success : styles.error}
+          >
+            {message}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

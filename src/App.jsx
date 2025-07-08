@@ -1,12 +1,10 @@
-// src/App.jsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import LoginPage from './pages/LoginPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
-import StudentPage from './pages/StudentPage.jsx';
-import OneToOneClassPage from './pages/OneToOneClassPage.jsx';
-import KioskPage from './pages/KioskPage.jsx';
-import StudentTodoPage from './pages/StudentTodoPage.jsx';
-import FullSchedulePage from './pages/FullSchedulePage.jsx';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import StudentPage from "./pages/StudentPage";
+import OneToOneClassPage from "./pages/OneToOneClassPage";
+import ReadingClassPage from "./pages/ReadingClassPage";
+import KioskPage from "./pages/KioskPage";
 
 function App() {
   return (
@@ -16,9 +14,8 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/students" element={<StudentPage />} />
         <Route path="/one-to-one" element={<OneToOneClassPage />} />
+        <Route path="/reading" element={<ReadingClassPage />} />
         <Route path="/kiosk" element={<KioskPage />} />
-        <Route path="/student-todo/:id" element={<StudentTodoPage />} />
-        <Route path="/full-schedule" element={<FullSchedulePage />} />
       </Routes>
     </BrowserRouter>
   );

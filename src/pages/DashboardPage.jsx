@@ -1,83 +1,75 @@
-// src/pages/DashboardPage.jsx
-import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
+
+const styles = {
+  container: {
+    backgroundColor: '#eef3f9',
+    height: '100vh',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  box: {
+    backgroundColor: 'white',
+    padding: '40px',
+    borderRadius: '12px',
+    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+    textAlign: 'center',
+    width: '320px',
+  },
+  title: {
+    marginBottom: '24px',
+    color: '#245ea8',
+    fontSize: '22px',
+    fontWeight: 'bold',
+  },
+  button: {
+    width: '100%',
+    padding: '12px',
+    marginBottom: '12px',
+    backgroundColor: '#245ea8',
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: '16px',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+};
 
 function DashboardPage() {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    if (isLoggedIn !== 'true') {
-      navigate('/');
-    }
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    navigate('/');
-  };
-
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>📘 블라썸에듀 산본<br />일대일수업시간표</h1>
-      <div style={styles.buttonContainer}>
-        <button onClick={() => navigate('/students')} style={styles.button}>
-          👩‍🎓 학생관리
+      <div style={styles.box}>
+        <h1 style={styles.title}>📘 블라썸에듀 산본 수업시간표</h1>
+        <button
+          onClick={() => navigate("/students")}
+          style={styles.button}
+        >
+          👩‍🏫 학생관리
         </button>
-        <button onClick={() => navigate('/one-to-one')} style={styles.button}>
-          🗓️ 수업관리
+        <button
+          onClick={() => navigate("/one-to-one")}
+          style={styles.button}
+        >
+          📅 일대일수업관리
         </button>
-        <button onClick={() => navigate('/full-schedule')} style={styles.button}>
-          🧾 전체시간표
+        <button
+          onClick={() => navigate("/reading")}
+          style={styles.button}
+        >
+          📖 독해수업관리
+        </button>
+        <button
+          onClick={() => navigate("/kiosk")}
+          style={styles.button}
+        >
+          📝 키오스크
         </button>
       </div>
-      <button onClick={handleLogout} style={styles.logout}>
-        로그아웃
-      </button>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    backgroundColor: '#f2f6fc',
-    height: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: '80px',
-  },
-  title: {
-    color: '#245ea8',
-    fontSize: '28px',
-    textAlign: 'center',
-    marginBottom: '50px',
-  },
-  buttonContainer: {
-    display: 'flex',
-    gap: '30px',
-    marginBottom: '40px',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  button: {
-    backgroundColor: '#245ea8',
-    color: 'white',
-    fontSize: '18px',
-    padding: '16px 28px',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
-  logout: {
-    backgroundColor: '#aaa',
-    color: 'white',
-    padding: '10px 20px',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '14px',
-    cursor: 'pointer',
-  },
-};
 
 export default DashboardPage;

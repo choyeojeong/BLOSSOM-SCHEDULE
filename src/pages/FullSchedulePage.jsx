@@ -1,4 +1,3 @@
-// src/pages/FullSchedulePage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +23,7 @@ const saturdaySlots = [
 ];
 
 function getColor(type, status) {
-  if (type === '업무') return '#e0f7fa'; // 업무 색상
+  if (type === '업무') return '#e6e6fa'; // 업무 색상(연보라)
   if (type === '보강') return '#fffacc'; // 보강 색상
   if (status === '출석') return '#d4f4fa';
   if (status === '결석') return '#ffd6d6';
@@ -45,16 +44,22 @@ export default function FullSchedulePage() {
   );
 
   const fetchLessons = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('lessons')
       .select('*')
       .gte('date', weekStart.format('YYYY-MM-DD'))
       .lte('date', weekStart.add(5, 'day').format('YYYY-MM-DD'));
+    if (error) {
+      console.error('레슨 불러오기 오류:', error.message);
+    }
     setLessons(data || []);
   };
 
   const fetchStudents = async () => {
-    const { data } = await supabase.from('students').select('*');
+    const { data, error } = await supabase.from('students').select('*');
+    if (error) {
+      console.error('학생 불러오기 오류:', error.message);
+    }
     const map = {};
     const teacherSet = new Set();
     (data || []).forEach((s) => {
@@ -63,7 +68,6 @@ export default function FullSchedulePage() {
     });
     setStudentsMap(map);
     setTeachers(Array.from(teacherSet));
-    setLoading(false);
   };
 
   const goToPreviousWeek = () => {
@@ -75,9 +79,13 @@ export default function FullSchedulePage() {
   };
 
   useEffect(() => {
-    setLoading(true);
-    fetchLessons();
-    fetchStudents();
+    const loadData = async () => {
+      setLoading(true);
+      await fetchStudents();
+      await fetchLessons();
+      setLoading(false);
+    };
+    loadData();
   }, [currentDate]);
 
   if (loading) return <div style={{ padding: '2rem' }}>로딩 중...</div>;
@@ -92,11 +100,11 @@ export default function FullSchedulePage() {
           date: date,
           time: time,
           type: '업무',
-          memo: task,
+          task: task,
         },
       ]);
       if (error) {
-        console.error('업무 저장 오류:', error);
+        console.error('업무 저장 오류:', error.message);
         alert('업무 저장에 실패했습니다: ' + error.message);
       } else {
         fetchLessons(); // 새로고침
@@ -137,7 +145,7 @@ export default function FullSchedulePage() {
           >
             <span>
               {lesson.type === '업무'
-                ? `📌 업무: ${lesson.memo}`
+                ? `📌 업무: ${lesson.task || lesson.memo}`
                 : lesson.student_id && studentsMap[lesson.student_id]
                 ? `${studentsMap[lesson.student_id].name} (${studentsMap[lesson.student_id].school} ${studentsMap[lesson.student_id].grade})`
                 : '학생정보없음'}
@@ -229,77 +237,81 @@ export default function FullSchedulePage() {
       </div>
 
       {/* 선생님별 월~금 시간표 */}
-      {teachers.map((teacher) => (
-        <div key={teacher} style={{ marginBottom: '3rem' }}>
-          <h3 style={{ marginBottom: '0.5rem', color: '#333' }}>
-            {teacher} 선생님 (월~금)
-          </h3>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              border: '1px solid #ccc',
-              backgroundColor: 'white',
-            }}
-          >
-            <thead>
-              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                <th
-                  style={{
-                    border: '1px solid #ccc',
-                    padding: '6px',
-                    textAlign: 'center',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  시간
-                </th>
-                {weekDates.slice(0, 5).map((date) => (
+      {teachers.length === 0 ? (
+        <div>등록된 선생님이 없습니다.</div>
+      ) : (
+        teachers.map((teacher) => (
+          <div key={teacher} style={{ marginBottom: '3rem' }}>
+            <h3 style={{ marginBottom: '0.5rem', color: '#333' }}>
+              {teacher} 선생님 (월~금)
+            </h3>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                border: '1px solid #ccc',
+                backgroundColor: 'white',
+              }}
+            >
+              <thead>
+                <tr style={{ backgroundColor: '#f0f0f0' }}>
                   <th
-                    key={date}
                     style={{
                       border: '1px solid #ccc',
                       padding: '6px',
                       textAlign: 'center',
-                    }}
-                  >
-                    {date} ({WEEKDAYS_KR[dayjs(date).day()]})
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {weekdaySlots.map((slot) => (
-                <tr key={slot}>
-                  <td
-                    style={{
-                      border: '1px solid #ccc',
-                      padding: '6px',
-                      backgroundColor: '#f9f9f9',
                       fontWeight: 'bold',
-                      textAlign: 'center',
                     }}
                   >
-                    {slot}
-                  </td>
+                    시간
+                  </th>
                   {weekDates.slice(0, 5).map((date) => (
-                    <td
+                    <th
                       key={date}
                       style={{
                         border: '1px solid #ccc',
-                        padding: '4px',
-                        verticalAlign: 'top',
+                        padding: '6px',
+                        textAlign: 'center',
                       }}
                     >
-                      {getCellContent(teacher, date, slot)}
-                    </td>
+                      {date} ({WEEKDAYS_KR[dayjs(date).day()]})
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+              </thead>
+              <tbody>
+                {weekdaySlots.map((slot) => (
+                  <tr key={slot}>
+                    <td
+                      style={{
+                        border: '1px solid #ccc',
+                        padding: '6px',
+                        backgroundColor: '#f9f9f9',
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {slot}
+                    </td>
+                    {weekDates.slice(0, 5).map((date) => (
+                      <td
+                        key={date}
+                        style={{
+                          border: '1px solid #ccc',
+                          padding: '4px',
+                          verticalAlign: 'top',
+                        }}
+                      >
+                        {getCellContent(teacher, date, slot)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))
+      )}
 
       {/* 토요일 시간표 */}
       <h3 style={{ margin: '2rem 0 0.5rem', color: '#333' }}>토요일 시간표</h3>

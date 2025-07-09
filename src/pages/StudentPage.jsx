@@ -109,6 +109,59 @@ function StudentPage() {
     fetchStudents();
   }, []);
 
+  const createLessonsForStudent = async (studentId, updatedForm) => {
+    const lessons = [];
+    const startDate = new Date(updatedForm.first_day);
+    const endDate = new Date(startDate);
+    endDate.setFullYear(endDate.getFullYear() + 7);
+
+    // ✅ 독해시간 JSON 파싱
+    const readingTimes = JSON.parse(updatedForm.reading_times);
+
+    // 📌 일대일 수업 생성
+    const oneDays = updatedForm.one_day.split(",").map((d) => d.trim());
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dayName = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+      if (oneDays.includes(dayName)) {
+        lessons.push({
+          student_id: studentId,
+          date: d.toISOString().substring(0, 10),
+          time: updatedForm.one_class_time,
+          test_time: updatedForm.one_test_time,
+          type: "일대일",
+        });
+      }
+    }
+
+    // 📌 독해수업 생성
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      const dayName = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+      if (readingTimes[dayName]?.trim()) {
+        lessons.push({
+          student_id: studentId,
+          date: d.toISOString().substring(0, 10),
+          time: readingTimes[dayName],
+          type: "독해",
+        });
+      }
+    }
+
+    if (lessons.length > 0) {
+      const { error: lessonsError } = await supabase
+        .from("lessons")
+        .insert(lessons);
+      if (lessonsError) console.error(lessonsError);
+    }
+  };
+
   const handleSubmit = async () => {
     const updatedForm = {
       ...form,
@@ -116,11 +169,28 @@ function StudentPage() {
     };
 
     if (editingId) {
+      // 기존 수업 삭제 후 새로 생성
       await supabase.from("students").update(updatedForm).eq("id", editingId);
+      await supabase
+        .from("lessons")
+        .delete()
+        .eq("student_id", editingId);
+
+      await createLessonsForStudent(editingId, updatedForm);
     } else {
-      await supabase.from("students").insert([updatedForm]);
-      // Supabase 트리거가 자동으로 일대일+독해수업 생성
+      const { data, error } = await supabase
+        .from("students")
+        .insert([updatedForm])
+        .select();
+      if (error) {
+        console.error(error);
+        alert("학생 등록 실패 ❌");
+        return;
+      }
+      const studentId = data[0].id;
+      await createLessonsForStudent(studentId, updatedForm);
     }
+
     setForm({
       name: "",
       school: "",

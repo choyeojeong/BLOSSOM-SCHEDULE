@@ -1,3 +1,4 @@
+// src/pages/FullSchedulePage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -24,10 +25,10 @@ const saturdaySlots = [
 
 function getColor(type, status) {
   if (type === '업무') return '#e6e6fa'; // 업무 색상(연보라)
-  if (type === '보강') return '#fffacc'; // 보강 색상
-  if (status === '출석') return '#d4f4fa';
-  if (status === '결석') return '#ffd6d6';
-  return '#eaeaea'; // 기본 색상
+  if (type === '보강') return '#fffacc'; // 보강 색상(연노랑)
+  if (status === '출석') return '#d4f4fa'; // 출석 색상(연하늘)
+  if (status === '결석') return '#ffd6d6'; // 결석 색상(연분홍)
+  return '#eaeaea'; // 기본 색상(연회색)
 }
 
 export default function FullSchedulePage() {
@@ -87,8 +88,6 @@ export default function FullSchedulePage() {
     };
     loadData();
   }, [currentDate]);
-
-  if (loading) return <div style={{ padding: '2rem' }}>로딩 중...</div>;
 
   const addTask = async (teacher, date, time) => {
     const task = prompt(`${teacher} 선생님\n${date} ${time}에 추가할 업무 내용을 입력하세요:`);
@@ -186,6 +185,8 @@ export default function FullSchedulePage() {
       </div>
     );
   };
+
+  if (loading) return <div style={{ padding: '2rem' }}>로딩 중...</div>;
 
   return (
     <div style={{ padding: '2rem' }}>

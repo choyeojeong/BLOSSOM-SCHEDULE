@@ -1,3 +1,4 @@
+// src/pages/OneToOneClassPage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import dayjs from 'dayjs';
@@ -37,9 +38,7 @@ export default function OneToOneClassPage() {
 
   useEffect(() => {
     const savedTeacher = localStorage.getItem('selectedTeacher');
-    const savedDate = localStorage.getItem('selectedDate');
     if (savedTeacher) setSelectedTeacher(savedTeacher);
-    if (savedDate) setSelectedDate(savedDate);
   }, []);
 
   useEffect(() => {
@@ -52,7 +51,10 @@ export default function OneToOneClassPage() {
   }, [selectedTeacher, selectedDate]);
 
   const fetchTeachers = async () => {
-    const { data } = await supabase.from('students').select('teacher').neq('teacher', '');
+    const { data } = await supabase
+      .from('students')
+      .select('teacher')
+      .neq('teacher', '');
     const unique = [...new Set(data.map((d) => d.teacher))];
     setTeachers(unique);
   };
@@ -109,17 +111,15 @@ export default function OneToOneClassPage() {
     if (makeup.date && makeup.test_time && makeup.class_time) {
       const { data } = await supabase
         .from('lessons')
-        .insert([
-          {
-            student_id: lesson.student_id,
-            date: makeup.date,
-            time: makeup.class_time,
-            test_time: makeup.test_time,
-            type: '보강',
-            original_lesson_id: lesson.id,
-            teacher: selectedTeacher,
-          },
-        ])
+        .insert([{
+          student_id: lesson.student_id,
+          date: makeup.date,
+          time: makeup.class_time,
+          test_time: makeup.test_time,
+          type: '보강',
+          original_lesson_id: lesson.id,
+          teacher: selectedTeacher,
+        }])
         .select();
       if (data && data.length > 0) {
         makeupLessonId = data[0].id;
@@ -151,19 +151,27 @@ export default function OneToOneClassPage() {
   };
 
   const addTask = async (slot) => {
-    const task = prompt(`업무 내용을 입력하세요 (${slot})`);
+    let task = prompt(`업무 내용을 입력하세요 (${slot})`);
     if (task) {
-      await supabase.from('lessons').insert([
-        {
+      task = task.trim();
+      if (task !== '') {
+        const { error } = await supabase.from('lessons').insert([{
           student_id: null,
           date: selectedDate,
           time: slot,
           type: '업무',
           task: task,
           teacher: selectedTeacher,
-        },
-      ]);
-      fetchLessons();
+        }]);
+        if (error) {
+          console.error('업무 저장 오류:', error.message);
+          alert('업무 저장에 실패했습니다.');
+        } else {
+          fetchLessons();
+        }
+      } else {
+        alert('업무 내용을 입력해야 합니다.');
+      }
     }
   };
 
@@ -184,20 +192,24 @@ export default function OneToOneClassPage() {
         선생님 선택:
         <select
           value={selectedTeacher}
-          onChange={(e) => setSelectedTeacher(e.target.value)}
+          onChange={(e) => {
+            setSelectedTeacher(e.target.value);
+            localStorage.setItem('selectedTeacher', e.target.value);
+          }}
         >
           <option value="">--</option>
           {teachers.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
+            <option key={t} value={t}>{t}</option>
           ))}
         </select>
       </label>
       <input
         type="date"
         value={selectedDate}
-        onChange={(e) => setSelectedDate(e.target.value)}
+        onChange={(e) => {
+          setSelectedDate(e.target.value);
+          localStorage.setItem('selectedDate', e.target.value);
+        }}
       />
 
       <div
@@ -217,18 +229,19 @@ export default function OneToOneClassPage() {
                 l.teacher === selectedTeacher)
           );
 
+          const memoLesson = items.find((l) => l.type === '메모');
+          const normalLessons = items.filter((l) => l.type !== '메모');
           const bgColor =
-            items.find((l) => l.type !== '업무')?.type === '보강'
+            normalLessons.find((l) => l.type !== '업무')?.type === '보강'
               ? '#fff9cc'
-              : items.find((l) => l.type !== '업무')?.status === '결석'
+              : normalLessons.find((l) => l.type !== '업무')?.status === '결석'
               ? '#ffe5e5'
-              : items.find((l) => l.type !== '업무')?.status === '출석'
+              : normalLessons.find((l) => l.type !== '업무')?.status === '출석'
               ? '#e0f7fa'
               : '#f0f0f0';
 
-          const memoLesson = items.find((l) => l.type === '메모');
           const memoValue =
-            memos[memoLesson?.id || slot] || memoLesson?.memo || '';
+            memos[memoLesson?.id || slot] ?? memoLesson?.memo ?? '';
 
           return (
             <div
@@ -241,81 +254,81 @@ export default function OneToOneClassPage() {
               }}
             >
               <strong>{slot}</strong>
-              {items.map((lesson) => {
-                const student = lesson?.student_id
-                  ? studentsMap[lesson.student_id]
-                  : null;
-
-                return (
-                  <div
-                    key={lesson.id}
-                    style={{
-                      marginTop: '8px',
-                      borderRadius: '4px',
-                      padding: '4px',
-                      backgroundColor:
-                        lesson.type === '업무' ? '#e6e6fa' : 'transparent',
-                    }}
-                  >
-{lesson.type === '업무' ? (
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    }}
-  >
-    <span>📌 업무: {lesson.task || lesson.memo}</span> {/* ✅ 수정 */}
-    <button
-      onClick={() => deleteTask(lesson.id)}
-      style={{
-        background: 'transparent',
-        border: 'none',
-        color: 'red',
-        cursor: 'pointer',
-      }}
-    >
-      🗑
-    </button>
-  </div>
-) : (
-  <>
-                          {student && (
-                          <div style={{ fontWeight: 'bold' }}>
-                            <button
-                              onClick={() =>
-                                navigate(`/student-todo/${student.id}`)
-                              }
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                margin: 0,
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '14px',
-                                color: '#245ea8',
-                              }}
-                            >
-                              {student.name} ({student.school} {student.grade})
-                            </button>
-                          </div>
-                        )}
-                        <div>테스트: {lesson.test_time}</div>
-                        <div>수업: {lesson.time}</div>
-                        {lesson.checkin_time && (
-                          <div>
-                            출석: {lesson.checkin_time}{' '}
-                            {lesson.on_time
-                              ? '정시'
-                              : `${lesson.late_minutes}분 지각`}
-                          </div>
-                        )}
-                        {lesson.absent_reason && (
-                          <div>사유: {lesson.absent_reason}</div>
-                        )}
-                        {lesson.status === '결석' && lesson.makeup_lesson_id && (
+              {normalLessons.map((lesson) => (
+                <div
+                  key={lesson.id}
+                  style={{
+                    marginTop: '8px',
+                    borderRadius: '4px',
+                    padding: '4px',
+                    backgroundColor:
+                      lesson.type === '업무' ? '#e6e6fa' : 'transparent',
+                  }}
+                >
+                  {lesson.type === '업무' ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span>
+                        📌 업무: {lesson.task?.trim() || '(내용없음)'}
+                      </span>
+                      <button
+                        onClick={() => deleteTask(lesson.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'red',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {lesson.student_id && studentsMap[lesson.student_id] && (
+                        <div style={{ fontWeight: 'bold' }}>
+                          <button
+                            onClick={() =>
+                              navigate(`/student-todo/${lesson.student_id}`)
+                            }
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              margin: 0,
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              fontSize: '14px',
+                              color: '#245ea8',
+                            }}
+                          >
+                            {studentsMap[lesson.student_id].name} (
+                            {studentsMap[lesson.student_id].school}{' '}
+                            {studentsMap[lesson.student_id].grade})
+                          </button>
+                        </div>
+                      )}
+                      <div>테스트: {lesson.test_time}</div>
+                      <div>수업: {lesson.time}</div>
+                      {lesson.checkin_time && (
+                        <div>
+                          출석: {lesson.checkin_time}{' '}
+                          {lesson.on_time
+                            ? '정시'
+                            : `${lesson.late_minutes}분 지각`}
+                        </div>
+                      )}
+                      {lesson.absent_reason && (
+                        <div>사유: {lesson.absent_reason}</div>
+                      )}
+                      {lesson.status === '결석' &&
+                        lesson.makeup_lesson_id && (
                           <div>
                             보강일:{' '}
                             {
@@ -330,210 +343,114 @@ export default function OneToOneClassPage() {
                             }
                           </div>
                         )}
-                        {lesson.type === '보강' &&
-                          lesson.original_lesson_id && (
-                            <div>
-                              원결석일:{' '}
-                              {
-                                lessons.find(
-                                  (l) => l.id === lesson.original_lesson_id
-                                )?.date
-                              }{' '}
-                              사유:{' '}
-                              {
-                                lessons.find(
-                                  (l) => l.id === lesson.original_lesson_id
-                                )?.absent_reason
-                              }
-                            </div>
-                          )}
-
-                        {absentEditId === lesson.id ? (
-                          <div style={{ marginTop: '0.5rem' }}>
-                            <textarea
-                              placeholder="결석 사유 입력"
-                              value={absentReasonMap[lesson.id] || ''}
-                              onChange={(e) =>
-                                setAbsentReasonMap((prev) => ({
-                                  ...prev,
-                                  [lesson.id]: e.target.value,
-                                }))
-                              }
-                              rows={2}
-                              style={{ width: '100%' }}
-                            />
-                            <div>
-                              <label>
-                                보강 여부:
-                                <select
-                                  value={
-                                    newMakeupMap[lesson.id]?.date ? 'O' : 'X'
-                                  }
-                                  onChange={(e) =>
-                                    setNewMakeupMap((prev) => ({
-                                      ...prev,
-                                      [lesson.id]: {
-                                        ...prev[lesson.id],
-                                        date: e.target.value === 'O' ? '' : null,
-                                      },
-                                    }))
-                                  }
-                                >
-                                  <option value="X">보강X</option>
-                                  <option value="O">보강O</option>
-                                </select>
-                              </label>
-                              {newMakeupMap[lesson.id]?.date !== null && (
-                                <>
-                                  <input
-                                    type="date"
-                                    value={
-                                      newMakeupMap[lesson.id]?.date || ''
-                                    }
-                                    onChange={(e) =>
-                                      setNewMakeupMap((prev) => ({
-                                        ...prev,
-                                        [lesson.id]: {
-                                          ...prev[lesson.id],
-                                          date: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="보강 테스트시간"
-                                    value={
-                                      newMakeupMap[lesson.id]?.test_time || ''
-                                    }
-                                    onChange={(e) =>
-                                      setNewMakeupMap((prev) => ({
-                                        ...prev,
-                                        [lesson.id]: {
-                                          ...prev[lesson.id],
-                                          test_time: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                  <input
-                                    type="text"
-                                    placeholder="보강 수업시간"
-                                    value={
-                                      newMakeupMap[lesson.id]?.class_time || ''
-                                    }
-                                    onChange={(e) =>
-                                      setNewMakeupMap((prev) => ({
-                                        ...prev,
-                                        [lesson.id]: {
-                                          ...prev[lesson.id],
-                                          class_time: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                  />
-                                </>
-                              )}
-                              <button
-                                onClick={() => saveAbsentAndMakeup(lesson)}
-                                style={{
-                                  backgroundColor: '#00bcd4',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  marginTop: '4px',
-                                }}
-                              >
-                                저장
-                              </button>
-                            </div>
+                      {lesson.type === '보강' &&
+                        lesson.original_lesson_id && (
+                          <div>
+                            원결석일:{' '}
+                            {
+                              lessons.find(
+                                (l) => l.id === lesson.original_lesson_id
+                              )?.date
+                            }{' '}
+                            사유:{' '}
+                            {
+                              lessons.find(
+                                (l) => l.id === lesson.original_lesson_id
+                              )?.absent_reason
+                            }
                           </div>
-                        ) : (
-                          lesson.status === null && (
-                            <div>
-                              <button
-                                onClick={() => handlePresent(lesson)}
-                                style={{
-                                  backgroundColor: '#00bcd4',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  marginRight: '4px',
-                                }}
-                              >
-                                출석
-                              </button>
-                              <button
-                                onClick={() => handleAbsent(lesson)}
-                                style={{
-                                  backgroundColor: '#00bcd4',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                결석
-                              </button>
-                            </div>
-                          )
                         )}
-
-                        {lesson.status && (
+                      {lesson.status === null && (
+                        <div style={{ marginTop: '4px' }}>
                           <button
-                            onClick={() => resetLesson(lesson)}
+                            onClick={() => handlePresent(lesson)}
                             style={{
-                              marginTop: '4px',
                               backgroundColor: '#00bcd4',
-                              color: '#fff',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              marginRight: '4px',
+                            }}
+                          >
+                            출석
+                          </button>
+                          <button
+                            onClick={() => handleAbsent(lesson)}
+                            style={{
+                              backgroundColor: '#00bcd4',
+                              color: 'white',
                               border: 'none',
                               borderRadius: '4px',
                               padding: '4px 8px',
                               cursor: 'pointer',
                             }}
                           >
-                            출결 초기화
+                            결석
                           </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* 메모칸 */}
+                        </div>
+                      )}
+                      {lesson.status && (
+                        <button
+                          onClick={() => resetLesson(lesson)}
+                          style={{
+                            marginTop: '4px',
+                            backgroundColor: '#00bcd4',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          출결 초기화
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
               <div style={{ marginTop: '0.5rem' }}>
                 <textarea
                   placeholder="메모"
                   value={memoValue}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newValue = e.target.value;
                     setMemos((prev) => ({
                       ...prev,
-                      [memoLesson?.id || slot]: e.target.value,
-                    }))
-                  }
+                      [memoLesson?.id || slot]: newValue,
+                    }));
+                  }}
                   onBlur={async (e) => {
+                    const newValue = e.target.value;
                     if (memoLesson) {
                       await supabase
                         .from('lessons')
-                        .update({ memo: e.target.value || null })
+                        .update({ memo: newValue || null })
                         .eq('id', memoLesson.id);
-                    } else if (e.target.value.trim() !== '') {
-                      await supabase.from('lessons').insert([
-                        {
+                      setMemos((prev) => ({
+                        ...prev,
+                        [memoLesson.id]: newValue,
+                      }));
+                    } else if (newValue !== '') {
+                      const { data } = await supabase
+                        .from('lessons')
+                        .insert([{
                           student_id: null,
                           date: selectedDate,
                           time: slot,
                           type: '메모',
-                          memo: e.target.value,
+                          memo: newValue,
                           teacher: selectedTeacher,
-                        },
-                      ]);
+                        }])
+                        .select();
+                      if (data && data[0]) {
+                        setMemos((prev) => ({
+                          ...prev,
+                          [data[0].id]: newValue,
+                        }));
+                      }
                     }
                     fetchLessons();
                   }}
@@ -541,7 +458,6 @@ export default function OneToOneClassPage() {
                   rows={2}
                 />
               </div>
-
               <div style={{ marginTop: '4px' }}>
                 <button
                   onClick={() => addTask(slot)}

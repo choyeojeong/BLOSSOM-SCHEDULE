@@ -1,4 +1,3 @@
-// src/pages/FullSchedulePage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -47,13 +46,28 @@ export default function FullSchedulePage() {
   const fetchLessons = async () => {
     const { data, error } = await supabase
       .from('lessons')
-      .select('*')
+      .select('id, student_id, teacher, date, time, type, status, task, memo')
       .gte('date', weekStart.format('YYYY-MM-DD'))
-      .lte('date', weekStart.add(5, 'day').format('YYYY-MM-DD'));
+      .lte('date', weekStart.add(5, 'day').format('YYYY-MM-DD'))
+      .order('date', { ascending: true })
+      .order('time', { ascending: true });
+
     if (error) {
       console.error('레슨 불러오기 오류:', error.message);
     }
-    setLessons(data || []);
+
+    // ✅ 중복 제거
+    const filteredLessons = [];
+    const seenKeys = new Set();
+    (data || []).forEach((l) => {
+      const key = `${l.student_id}_${l.date}_${l.time}_${l.type}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        filteredLessons.push(l);
+      }
+    });
+
+    setLessons(filteredLessons);
   };
 
   const fetchStudents = async () => {
@@ -147,7 +161,7 @@ export default function FullSchedulePage() {
                 ? `📌 업무: ${lesson.task || lesson.memo}`
                 : lesson.student_id && studentsMap[lesson.student_id]
                 ? `${studentsMap[lesson.student_id].name} (${studentsMap[lesson.student_id].school} ${studentsMap[lesson.student_id].grade})`
-                : '학생정보없음'}
+                : '❗ 학생정보없음'}
             </span>
             {lesson.type === '업무' && (
               <button

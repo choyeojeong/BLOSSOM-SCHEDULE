@@ -97,7 +97,11 @@ function StudentPage() {
   const [editingId, setEditingId] = useState(null);
 
   const fetchStudents = async () => {
-    const { data, error } = await supabase.from("students").select("*");
+    const { data, error } = await supabase
+      .from("students")
+      .select("*")
+      .is("leave_day", null) // ✅ 퇴원하지 않은 학생만
+      .order("name", { ascending: true });
     if (error) console.error(error);
     else {
       setStudents(data);
@@ -178,6 +182,21 @@ function StudentPage() {
 
       await createLessonsForStudent(editingId, updatedForm);
     } else {
+      // ✅ 중복 체크
+      const { data: existing } = await supabase
+        .from("students")
+        .select("*")
+        .eq("name", form.name)
+        .eq("school", form.school)
+        .eq("grade", form.grade)
+        .eq("teacher", form.teacher)
+        .is("leave_day", null);
+
+      if (existing && existing.length > 0) {
+        alert("이미 등록된 학생입니다 ❌");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("students")
         .insert([updatedForm])
@@ -240,7 +259,7 @@ function StudentPage() {
         .gte("date", leaveDay);
 
       alert("퇴원 처리 완료 ✅");
-      fetchStudents();
+      fetchStudents(); // ✅ 퇴원한 학생 자동 제거
     } catch (err) {
       console.error(err);
       alert("퇴원 처리 중 오류 발생 ❌");

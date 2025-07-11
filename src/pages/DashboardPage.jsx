@@ -51,7 +51,7 @@ function DashboardPage() {
         </button>
         <button
           style={styles.button}
-          onClick={() => navigate("/one-to-one")}
+          onClick={() => navigate("/teacher-select")} // ✅ 여기만 변경
         >
           📖 일대일수업관리
         </button>

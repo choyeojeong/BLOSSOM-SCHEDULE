@@ -30,6 +30,8 @@ export default function OneToOneClassPage() {
   });
   const [lessons, setLessons] = useState([]);
   const [studentsMap, setStudentsMap] = useState({});
+  const [fixedSchedules, setFixedSchedules] = useState([]);
+  const [newFixedSchedule, setNewFixedSchedule] = useState({ weekday: 1, time: '', content: '' });
   const [memos, setMemos] = useState({});
   const [absentEditId, setAbsentEditId] = useState(null);
   const [absentReasonMap, setAbsentReasonMap] = useState({});
@@ -46,7 +48,10 @@ export default function OneToOneClassPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedTeacher && selectedDate) fetchLessons();
+    if (selectedTeacher && selectedDate) {
+      fetchLessons();
+      fetchFixedSchedules();
+    }
   }, [selectedTeacher, selectedDate]);
 
   const fetchTeachers = async () => {
@@ -70,11 +75,42 @@ export default function OneToOneClassPage() {
       .from('lessons')
       .select('*')
       .or(`date.eq.${selectedDate},original_lesson_id.not.is.null`);
-    // 🔥 중복 제거
     const uniqueLessons = Array.from(
       new Map(data.map((item) => [item.id, item])).values()
     );
     setLessons(uniqueLessons || []);
+  };
+
+  const fetchFixedSchedules = async () => {
+    const { data } = await supabase
+      .from('fixed_schedules')
+      .select('*')
+      .eq('teacher_name', selectedTeacher)
+      .order('weekday')
+      .order('time');
+    setFixedSchedules(data || []);
+  };
+
+  const addFixedSchedule = async () => {
+    if (!newFixedSchedule.time || !newFixedSchedule.content) {
+      alert('시간과 내용을 입력하세요.');
+      return;
+    }
+    await supabase.from("fixed_schedules").insert([{
+      teacher_name: selectedTeacher,
+      weekday: newFixedSchedule.weekday,
+      time: newFixedSchedule.time,
+      content: newFixedSchedule.content,
+    }]);
+    setNewFixedSchedule({ weekday: 1, time: '', content: '' });
+    fetchFixedSchedules();
+  };
+
+  const deleteFixedSchedule = async (id) => {
+    if (window.confirm('정말 이 일정을 삭제하시겠습니까?')) {
+      await supabase.from('fixed_schedules').delete().eq('id', id);
+      fetchFixedSchedules();
+    }
   };
 
   const handlePresent = async (lesson) => {
@@ -104,58 +140,57 @@ export default function OneToOneClassPage() {
       [lesson.id]: { date: '', test_time: '', class_time: '' },
     }));
   };
-const saveAbsentAndMakeup = async (lesson) => {
-  const reason = absentReasonMap[lesson.id] || '';
-  const makeup = newMakeupMap[lesson.id] || {};
-  const update = { status: '결석', absent_reason: reason };
-  let makeupLessonId = null;
 
-  // ✅ 먼저 결석 처리
-  await supabase.from('lessons').update(update).eq('id', lesson.id);
+  const saveAbsentAndMakeup = async (lesson) => {
+    const reason = absentReasonMap[lesson.id] || '';
+    const makeup = newMakeupMap[lesson.id] || {};
+    const update = { status: '결석', absent_reason: reason };
+    let makeupLessonId = null;
 
-  // ✅ 보강 정보가 있으면 추가로 보강 수업 생성
-  if (makeup.date && makeup.test_time && makeup.class_time) {
-    const { data: existing } = await supabase
-      .from('lessons')
-      .select('*')
-      .eq('student_id', lesson.student_id)
-      .eq('date', makeup.date)
-      .eq('time', makeup.class_time)
-      .eq('type', '보강');
+    await supabase.from('lessons').update(update).eq('id', lesson.id);
 
-    if (existing.length > 0) {
-      alert('이미 해당 시간에 보강 수업이 있습니다.');
-      return;
+    if (makeup.date && makeup.test_time && makeup.class_time) {
+      const { data: existing } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('student_id', lesson.student_id)
+        .eq('date', makeup.date)
+        .eq('time', makeup.class_time)
+        .eq('type', '보강');
+
+      if (existing.length > 0) {
+        alert('이미 해당 시간에 보강 수업이 있습니다.');
+        return;
+      }
+
+      const { data } = await supabase
+        .from('lessons')
+        .insert([{
+          student_id: lesson.student_id,
+          date: makeup.date,
+          time: makeup.class_time,
+          test_time: makeup.test_time,
+          type: '보강',
+          original_lesson_id: lesson.id,
+          teacher: selectedTeacher,
+        }])
+        .select();
+      if (data && data.length > 0) {
+        makeupLessonId = data[0].id;
+        await supabase.from('lessons')
+          .update({ makeup_lesson_id: makeupLessonId })
+          .eq('id', lesson.id);
+      }
     }
 
-    const { data } = await supabase
-      .from('lessons')
-      .insert([{
-        student_id: lesson.student_id,
-        date: makeup.date,
-        time: makeup.class_time,
-        test_time: makeup.test_time,
-        type: '보강',
-        original_lesson_id: lesson.id,
-        teacher: selectedTeacher,
-      }])
-      .select();
-    if (data && data.length > 0) {
-      makeupLessonId = data[0].id;
-      // 보강 수업 ID를 원결석 수업에 연결
-      await supabase.from('lessons')
-        .update({ makeup_lesson_id: makeupLessonId })
-        .eq('id', lesson.id);
-    }
-  }
-
-  setAbsentEditId(null);
-  fetchLessons();
-};
+    setAbsentEditId(null);
+    fetchLessons();
+  };
 
   const resetLesson = async (lesson) => {
-    if (lesson.makeup_lesson_id)
+    if (lesson.makeup_lesson_id) {
       await supabase.from('lessons').delete().eq('id', lesson.makeup_lesson_id);
+    }
     await supabase
       .from('lessons')
       .update({
@@ -243,10 +278,11 @@ const saveAbsentAndMakeup = async (lesson) => {
         }}
       />
 
+      {/* 📅 시간표 카드 */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(5, 1fr)', // ✅ 5칸 가로배치
           gap: '1rem',
           marginTop: '1rem',
         }}
@@ -581,6 +617,108 @@ const saveAbsentAndMakeup = async (lesson) => {
           );
         })}
       </div>
+
+{/* 📝 고정 일정 관리 표 */}
+<h3 style={{ marginTop: '2rem' }}>인증관리 (고정일정)</h3>
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    gap: "1rem",
+    marginTop: "1rem",
+  }}
+>
+  {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+    <div
+      key={index}
+      style={{
+        border: "1px solid #ccc",
+        borderRadius: "8px",
+        padding: "1rem",
+        backgroundColor: "#f9f9f9",
+      }}
+    >
+      <strong>{day}</strong>
+      <ul style={{ marginTop: "0.5rem", paddingLeft: "1rem" }}>
+        {fixedSchedules
+          .filter((s) => s.weekday === index)
+          .map((schedule) => (
+            <li
+              key={schedule.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "4px",
+              }}
+            >
+              📌 {schedule.content}
+              <button
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from("fixed_schedules")
+                    .delete()
+                    .eq("id", schedule.id);
+                  if (error) {
+                    console.error("고정일정 삭제 오류:", error.message);
+                    alert("삭제 실패: " + error.message);
+                  } else {
+                    fetchFixedSchedules(); // ✅ 삭제 후 새로고침
+                  }
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "red",
+                  cursor: "pointer",
+                }}
+              >
+                🗑
+              </button>
+            </li>
+          ))}
+      </ul>
+      <button
+        onClick={async () => {
+          if (!selectedTeacher) {
+            alert("선생님을 먼저 선택해주세요.");
+            return;
+          }
+
+          const content = prompt(`${day}요일 고정일정 내용을 입력하세요`);
+          if (content && content.trim() !== "") {
+            const { error } = await supabase
+              .from("fixed_schedules")
+              .insert([{
+                teacher_name: selectedTeacher,
+                weekday: index,
+                content: content.trim(),
+              }]);
+
+            if (error) {
+              console.error("고정일정 추가 오류:", error.message);
+              alert("고정일정 추가 실패: " + error.message);
+            } else {
+              fetchFixedSchedules(); // ✅ 추가 후 새로고침
+            }
+          }
+        }}
+        style={{
+          marginTop: "0.5rem",
+          backgroundColor: "#00bcd4",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          padding: "4px 8px",
+          cursor: "pointer",
+          width: "100%",
+        }}
+      >
+        ➕ 추가
+      </button>
+    </div>
+  ))}
+</div>
     </div>
   );
 }

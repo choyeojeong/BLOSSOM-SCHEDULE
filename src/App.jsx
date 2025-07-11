@@ -6,7 +6,8 @@ import OneToOneClassPage from "./pages/OneToOneClassPage";
 import ReadingClassPage from "./pages/ReadingClassPage";
 import KioskPage from "./pages/KioskPage";
 import StudentTodoPage from "./pages/StudentTodoPage";
-import FullSchedulePage from "./pages/FullSchedulePage"; // ✅ 추가
+import FullSchedulePage from "./pages/FullSchedulePage";
+import TeacherSelectPage from "./pages/TeacherSelectPage"; // ✅ 새로 추가
 
 function App() {
   return (
@@ -15,11 +16,12 @@ function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/students" element={<StudentPage />} />
+        <Route path="/teacher-select" element={<TeacherSelectPage />} /> {/* ✅ 추가 */}
         <Route path="/one-to-one" element={<OneToOneClassPage />} />
         <Route path="/reading" element={<ReadingClassPage />} />
         <Route path="/kiosk" element={<KioskPage />} />
         <Route path="/student-todo/:id" element={<StudentTodoPage />} />
-        <Route path="/full-schedule" element={<FullSchedulePage />} /> {/* ✅ 추가 */}
+        <Route path="/full-schedule" element={<FullSchedulePage />} />
       </Routes>
     </BrowserRouter>
   );

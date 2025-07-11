@@ -252,7 +252,7 @@ export default function OneToOneClassPage() {
 
   return (
     <div style={{ padding: '2rem' }}>
-      <button onClick={() => navigate('/dashboard')}>← 뒤로가기</button>
+      <button onClick={() => navigate("/teacher-options")}>← 뒤로가기</button>
       <h2>일대일 수업 관리</h2>
       <label>
         선생님 선택:

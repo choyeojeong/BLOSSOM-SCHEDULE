@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../utils/supabaseClient";
+import { useNavigate } from "react-router-dom";
 
 const styles = {
   container: {
@@ -22,10 +22,11 @@ const styles = {
     fontSize: "24px",
     fontWeight: "bold",
     marginBottom: "1rem",
+    textAlign: "center",
   },
   buttonGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
     gap: "1rem",
   },
   teacherButton: {
@@ -52,18 +53,22 @@ function TeacherSelectPage() {
     const { data, error } = await supabase
       .from("students")
       .select("teacher")
-      .neq("teacher", "");
+      .neq("teacher", "") // ✅ 빈 값 제거
+      .order("teacher", { ascending: true });
+
     if (error) {
-      console.error("선생님 목록 가져오기 오류:", error.message);
-      return;
+      console.error("선생님 목록 불러오기 오류:", error.message);
+      alert("선생님 목록을 불러오는 중 오류가 발생했습니다.");
+    } else {
+      // ✅ 중복 제거
+      const uniqueTeachers = [...new Set(data.map((d) => d.teacher))];
+      setTeachers(uniqueTeachers);
     }
-    const uniqueTeachers = [...new Set(data.map((d) => d.teacher))];
-    setTeachers(uniqueTeachers);
   };
 
   const handleTeacherClick = (teacher) => {
-    localStorage.setItem("selectedTeacher", teacher); // ✅ 선택한 선생님 저장
-    navigate("/one-to-one");
+    localStorage.setItem("selectedTeacher", teacher);
+    navigate("/teacher-options");
   };
 
   return (

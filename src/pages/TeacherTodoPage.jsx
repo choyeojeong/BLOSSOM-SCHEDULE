@@ -52,6 +52,8 @@ const styles = {
     fontSize: "18px",
     fontWeight: "bold",
     marginBottom: "0.5rem",
+    cursor: "pointer", // ✅ 클릭 가능하게 커서 추가
+    color: "#245ea8",  // ✅ 강조 색상
   },
   todoList: {
     flexGrow: 1,
@@ -144,6 +146,10 @@ function TeacherTodoPage() {
     }
   };
 
+  const handleStudentClick = (studentId) => {
+    navigate(`/student-todo/${studentId}`); // ✅ 학생 개별 할일 페이지로 이동
+  };
+
   return (
     <div style={styles.container}>
       <button
@@ -180,7 +186,11 @@ function TeacherTodoPage() {
             }, {})
           ).map(({ student, items }) => (
             <div key={student.id} style={styles.studentCard}>
-              <div style={styles.studentTitle}>
+              {/* 🛠 학생 이름 클릭 시 개별 할일 페이지로 이동 */}
+              <div
+                style={styles.studentTitle}
+                onClick={() => handleStudentClick(student.id)}
+              >
                 👩‍🎓 {student.name} ({student.school} {student.grade})
               </div>
               <div style={styles.todoList}>

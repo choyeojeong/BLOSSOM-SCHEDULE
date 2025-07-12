@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../utils/supabaseClient";
+import dayjs from "dayjs";
 
 const styles = {
   container: {
@@ -92,97 +93,92 @@ function StudentPage() {
     one_day: "",
     one_test_time: "",
     one_class_time: "",
-    reading_times: {}, // { "월": "10:00", "수": "14:00" }
+    reading_times: {},
   });
   const [editingId, setEditingId] = useState(null);
-
-  const fetchStudents = async () => {
-    const { data, error } = await supabase
-      .from("students")
-      .select("*")
-      .is("leave_day", null) // ✅ 퇴원하지 않은 학생만
-      .order("name", { ascending: true });
-    if (error) console.error(error);
-    else {
-      setStudents(data);
-      setFilteredStudents(data); // 초기 필터링
-    }
-  };
 
   useEffect(() => {
     fetchStudents();
   }, []);
 
-  const createLessonsForStudent = async (studentId, updatedForm) => {
-    const lessons = [];
-    const startDate = new Date(updatedForm.first_day);
-    const endDate = new Date(startDate);
-    endDate.setFullYear(endDate.getFullYear() + 7);
+  const fetchStudents = async () => {
+    const { data, error } = await supabase
+      .from("students")
+      .select("*")
+      .is("leave_day", null)
+      .order("name", { ascending: true });
+    if (error) {
+      console.error("학생 목록 로드 오류:", error.message);
+    } else {
+      setStudents(data);
+      setFilteredStudents(data);
+    }
+  };
 
-    // ✅ 독해시간 JSON 파싱
-    const readingTimes = JSON.parse(updatedForm.reading_times);
+  const regenerateLessons = async (studentId, updatedForm) => {
+    const today = dayjs().format("YYYY-MM-DD");
 
-    // 📌 일대일 수업 생성
+    // 오늘 이후 '일대일' 및 '독해' 수업만 삭제 (보강, 메모, 업무는 유지)
+    await supabase
+      .from("lessons")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("type", "일대일")
+      .gte("date", today);
+
+    await supabase
+      .from("lessons")
+      .delete()
+      .eq("student_id", studentId)
+      .eq("type", "독해")
+      .gte("date", today);
+
+    const start = dayjs(today);
+    const end = start.add(7, "year");
+    const readingTimes = JSON.parse(updatedForm.reading_times || "{}");
     const oneDays = updatedForm.one_day.split(",").map((d) => d.trim());
-    for (
-      let d = new Date(startDate);
-      d <= endDate;
-      d.setDate(d.getDate() + 1)
-    ) {
-      const dayName = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+
+    const toInsert = [];
+    for (let d = start; d.isBefore(end); d = d.add(1, "day")) {
+      const dayName = ["일","월","화","수","목","금","토"][d.day()];
       if (oneDays.includes(dayName)) {
-        lessons.push({
+        toInsert.push({
           student_id: studentId,
-          date: d.toISOString().substring(0, 10),
+          date: d.format("YYYY-MM-DD"),
           time: updatedForm.one_class_time,
           test_time: updatedForm.one_test_time,
           type: "일대일",
         });
       }
-    }
-
-    // 📌 독해수업 생성
-    for (
-      let d = new Date(startDate);
-      d <= endDate;
-      d.setDate(d.getDate() + 1)
-    ) {
-      const dayName = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
       if (readingTimes[dayName]?.trim()) {
-        lessons.push({
+        toInsert.push({
           student_id: studentId,
-          date: d.toISOString().substring(0, 10),
+          date: d.format("YYYY-MM-DD"),
           time: readingTimes[dayName],
           type: "독해",
         });
       }
     }
-
-    if (lessons.length > 0) {
-      const { error: lessonsError } = await supabase
-        .from("lessons")
-        .insert(lessons);
-      if (lessonsError) console.error(lessonsError);
+    while (toInsert.length) {
+      const chunk = toInsert.splice(0, 500);
+      const { error } = await supabase.from("lessons").insert(chunk);
+      if (error) console.error(error);
     }
   };
 
   const handleSubmit = async () => {
     const updatedForm = {
       ...form,
-      reading_times: JSON.stringify(form.reading_times), // JSON 형태로 저장
+      reading_times: JSON.stringify(form.reading_times),
     };
 
     if (editingId) {
-      // 기존 수업 삭제 후 새로 생성
-      await supabase.from("students").update(updatedForm).eq("id", editingId);
       await supabase
-        .from("lessons")
-        .delete()
-        .eq("student_id", editingId);
-
-      await createLessonsForStudent(editingId, updatedForm);
+        .from("students")
+        .update(updatedForm)
+        .eq("id", editingId);
+      await regenerateLessons(editingId, updatedForm);
     } else {
-      // ✅ 중복 체크
       const { data: existing } = await supabase
         .from("students")
         .select("*")
@@ -207,7 +203,7 @@ function StudentPage() {
         return;
       }
       const studentId = data[0].id;
-      await createLessonsForStudent(studentId, updatedForm);
+      await regenerateLessons(studentId, updatedForm);
     }
 
     setForm({
@@ -226,55 +222,49 @@ function StudentPage() {
     fetchStudents();
   };
 
-  const handleEdit = (student) => {
+  const handleEdit = (s) => {
     setForm({
-      ...student,
-      reading_times: student.reading_times
-        ? JSON.parse(student.reading_times)
-        : {},
+      ...s,
+      reading_times:
+        s.reading_times && s.reading_times !== ""
+          ? JSON.parse(s.reading_times)
+          : {},
     });
-    setEditingId(student.id);
+    setEditingId(s.id);
   };
 
-  const handleDelete = async (student) => {
+  const handleDelete = async (s) => {
     const leaveDay = prompt(
-      `퇴원일을 입력하세요 (예: ${new Date()
-        .toISOString()
-        .substring(0, 10)} 형식)`
+      `퇴원일을 입력하세요 (예: ${dayjs().format("YYYY-MM-DD")})`
     );
     if (!leaveDay) return;
-
     try {
-      // 1️⃣ 퇴원일 업데이트
       await supabase
         .from("students")
         .update({ leave_day: leaveDay })
-        .eq("id", student.id);
-
-      // 2️⃣ 퇴원일 이후 수업 삭제
+        .eq("id", s.id);
       await supabase
         .from("lessons")
         .delete()
-        .eq("student_id", student.id)
+        .eq("student_id", s.id)
         .gte("date", leaveDay);
-
       alert("퇴원 처리 완료 ✅");
-      fetchStudents(); // ✅ 퇴원한 학생 자동 제거
+      fetchStudents();
     } catch (err) {
       console.error(err);
       alert("퇴원 처리 중 오류 발생 ❌");
     }
   };
 
-  const handleSearch = (value) => {
-    setSearch(value);
-    const filtered = students.filter((s) =>
+  const handleSearch = (v) => {
+    setSearch(v);
+    const f = students.filter((s) =>
       [s.name, s.school, s.grade, s.teacher]
         .join(" ")
         .toLowerCase()
-        .includes(value.toLowerCase())
+        .includes(v.toLowerCase())
     );
-    setFilteredStudents(filtered);
+    setFilteredStudents(f);
   };
 
   return (
@@ -283,7 +273,6 @@ function StudentPage() {
         <h2 style={styles.title}>
           {editingId ? "학생 수정" : "학생 등록"}
         </h2>
-        {/* 기본 정보 */}
         <input
           type="text"
           placeholder="이름"
@@ -326,8 +315,6 @@ function StudentPage() {
           onChange={(e) => setForm({ ...form, first_day: e.target.value })}
           style={styles.input}
         />
-
-        {/* ✅ 일대일 수업 */}
         <div style={styles.label}>📝 일대일 수업</div>
         <input
           type="text"
@@ -354,8 +341,6 @@ function StudentPage() {
           }
           style={styles.input}
         />
-
-        {/* ✅ 독해수업 */}
         <div style={styles.label}>📖 독해수업 요일별 시간</div>
         {weekdays.map((day) => (
           <div key={day} style={{ marginBottom: "8px" }}>
@@ -377,13 +362,11 @@ function StudentPage() {
             />
           </div>
         ))}
-
         <button onClick={handleSubmit} style={styles.button}>
           {editingId ? "수정" : "등록"}
         </button>
       </div>
 
-      {/* ✅ 검색 */}
       <div style={styles.searchBox}>
         <input
           type="text"
@@ -394,7 +377,6 @@ function StudentPage() {
         />
       </div>
 
-      {/* 학생 목록 */}
       <table style={styles.table}>
         <thead>
           <tr>

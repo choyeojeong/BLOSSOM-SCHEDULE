@@ -21,6 +21,10 @@ function ReadingClassPage() {
   const [makeupDate, setMakeupDate] = useState("");
   const [makeupTime, setMakeupTime] = useState("");
 
+  const [manualStudentName, setManualStudentName] = useState("");
+  const [manualDate, setManualDate] = useState("");
+  const [manualTime, setManualTime] = useState("");
+
   useEffect(() => {
     fetchLessons();
   }, [selectedDate]);
@@ -32,7 +36,11 @@ function ReadingClassPage() {
     const { data: lessons, error } = await supabase
       .from("lessons")
       .select(
-        "id, date, time, status, checkin_time, memo, absent_reason, is_makeup, makeup_lesson_id, original_lesson_id, students(name, school, grade, teacher)"
+        `
+        id, date, time, status, checkin_time, memo, absent_reason, is_makeup, makeup_lesson_id, original_lesson_id,
+        students (name, school, grade, teacher),
+        original_lesson:lessons (date, absent_reason)
+        `
       )
       .eq("type", "독해")
       .gte("date", startOfWeek)
@@ -45,7 +53,6 @@ function ReadingClassPage() {
       return;
     }
 
-    // 요일별 그룹화
     const grouped = {};
     lessons.forEach((lesson) => {
       const day = dayjs(lesson.date).format("dd");
@@ -78,7 +85,6 @@ function ReadingClassPage() {
   const handleAbsentSave = async (lesson) => {
     let makeupLessonId = null;
 
-    // ✅ 보강 입력이 있으면 보강수업 자동 추가
     if (makeupDate && makeupTime) {
       const { data, error } = await supabase
         .from("lessons")
@@ -89,7 +95,7 @@ function ReadingClassPage() {
           type: "독해",
           is_makeup: true,
           original_lesson_id: lesson.id,
-          absent_reason: absentReason, // ✅ 결석사유도 보강에 같이 기록
+          absent_reason: absentReason,
         })
         .select()
         .single();
@@ -110,7 +116,6 @@ function ReadingClassPage() {
   };
 
   const handleReset = async (lesson) => {
-    // ✅ 원결석 수업 초기화 시 보강수업도 삭제
     if (lesson.makeup_lesson_id) {
       await supabase.from("lessons").delete().eq("id", lesson.makeup_lesson_id);
     }
@@ -137,6 +142,43 @@ function ReadingClassPage() {
   const handleMemoChange = async (lessonId, memo) => {
     await supabase.from("lessons").update({ memo }).eq("id", lessonId);
     fetchLessons();
+  };
+
+  const handleManualAdd = async () => {
+    if (!manualStudentName || !manualDate || !manualTime) {
+      alert("학생 이름, 날짜, 시간을 모두 입력해주세요.");
+      return;
+    }
+
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("id")
+      .eq("name", manualStudentName)
+      .single();
+
+    if (studentError || !student) {
+      alert("해당 이름의 학생을 찾을 수 없습니다.");
+      return;
+    }
+
+    const { error } = await supabase.from("lessons").insert({
+      student_id: student.id,
+      date: manualDate,
+      time: manualTime,
+      type: "독해",
+      is_makeup: true,
+    });
+
+    if (error) {
+      alert("보강 수업 추가 중 오류가 발생했습니다.");
+      console.error(error);
+    } else {
+      alert("보강 수업이 추가되었습니다.");
+      setManualStudentName("");
+      setManualDate("");
+      setManualTime("");
+      fetchLessons();
+    }
   };
 
   return (
@@ -228,53 +270,19 @@ function ReadingClassPage() {
                     <td style={tdStyle}>{lesson.students?.grade}</td>
                     <td style={tdStyle}>{lesson.students?.teacher}</td>
                     <td style={tdStyle}>
-                      {lesson.status === "출석" ? (
+                      {lesson.is_makeup && lesson.original_lesson ? (
+                        <>
+                          <div style={{ fontSize: "0.9rem", color: "#333" }}>
+                            원결석일: {dayjs(lesson.original_lesson.date).format("YYYY-MM-DD")}
+                          </div>
+                          <div style={{ fontSize: "0.9rem", color: "#333" }}>
+                            결석사유: {lesson.original_lesson.absent_reason}
+                          </div>
+                        </>
+                      ) : lesson.status === "출석" ? (
                         <span>{lesson.checkin_time}</span>
                       ) : lesson.status === "결석" ? (
-                        <>
-                          <div>결석 ({lesson.absent_reason})</div>
-                          {lesson.makeup_lesson_id && (
-                            <div style={{ fontSize: "0.9rem", color: "#333" }}>
-                              보강일: {dayjs(lesson.date).format("YYYY-MM-DD")} {lesson.time}
-                            </div>
-                          )}
-                        </>
-                      ) : lesson.is_makeup ? (
-                        <>
-                          <div style={{ fontSize: "0.9rem", color: "#333" }}>
-                            원결석일: {dayjs(lesson.date).format("YYYY-MM-DD")}
-                          </div>
-                          <div style={{ fontSize: "0.9rem", color: "#333" }}>
-                            결석사유: {lesson.absent_reason}
-                          </div>
-                        </>
-                      ) : editingLessonId === lesson.id ? (
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="결석사유"
-                            value={absentReason}
-                            onChange={(e) => setAbsentReason(e.target.value)}
-                            style={{ marginRight: "5px" }}
-                          />
-                          <input
-                            type="date"
-                            value={makeupDate}
-                            onChange={(e) => setMakeupDate(e.target.value)}
-                          />
-                          <input
-                            type="text"
-                            placeholder="HH:mm"
-                            value={makeupTime}
-                            onChange={(e) => setMakeupTime(e.target.value)}
-                          />
-                          <button
-                            style={{ ...btnStyle, backgroundColor: "#245ea8" }}
-                            onClick={() => handleAbsentSave(lesson)}
-                          >
-                            저장
-                          </button>
-                        </div>
+                        <div>결석 ({lesson.absent_reason})</div>
                       ) : (
                         <>
                           <button
@@ -330,6 +338,47 @@ function ReadingClassPage() {
           )}
         </div>
       ))}
+
+      {/* ✅ 보강 수동입력 폼 */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "8px",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+          padding: "1rem",
+          marginTop: "2rem",
+        }}
+      >
+        <h3 style={{ color: "#245ea8", marginBottom: "1rem" }}>✏️ 보강 수동입력</h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+          <input
+            type="text"
+            placeholder="학생 이름"
+            value={manualStudentName}
+            onChange={(e) => setManualStudentName(e.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="date"
+            value={manualDate}
+            onChange={(e) => setManualDate(e.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="text"
+            placeholder="HH:mm"
+            value={manualTime}
+            onChange={(e) => setManualTime(e.target.value)}
+            style={inputStyle}
+          />
+          <button
+            style={{ ...btnStyle, backgroundColor: "#245ea8" }}
+            onClick={handleManualAdd}
+          >
+            보강수업 추가
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -353,6 +402,13 @@ const btnStyle = {
   borderRadius: "4px",
   cursor: "pointer",
   margin: "2px",
+};
+
+const inputStyle = {
+  padding: "8px",
+  border: "1px solid #ccc",
+  borderRadius: "4px",
+  width: "200px",
 };
 
 export default ReadingClassPage;

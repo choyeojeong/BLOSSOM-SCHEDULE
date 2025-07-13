@@ -4,63 +4,63 @@ import dayjs from "dayjs";
 
 const styles = {
   container: {
-    backgroundColor: '#eef3f9',
-    minHeight: '100vh',
-    padding: '40px',
+    backgroundColor: "#eef3f9",
+    minHeight: "100vh",
+    padding: "40px",
   },
   box: {
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '12px',
-    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-    marginBottom: '20px',
+    backgroundColor: "white",
+    padding: "20px",
+    borderRadius: "12px",
+    boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+    marginBottom: "20px",
   },
   title: {
-    color: '#245ea8',
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '16px',
+    color: "#245ea8",
+    fontSize: "20px",
+    fontWeight: "bold",
+    marginBottom: "16px",
   },
   input: {
-    display: 'block',
-    width: '100%',
-    marginBottom: '12px',
-    padding: '10px',
-    fontSize: '16px',
-    border: '1px solid #ccc',
-    borderRadius: '6px',
+    display: "block",
+    width: "100%",
+    marginBottom: "12px",
+    padding: "10px",
+    fontSize: "16px",
+    border: "1px solid #ccc",
+    borderRadius: "6px",
   },
   label: {
-    marginBottom: '8px',
-    color: '#245ea8',
-    fontWeight: 'bold',
+    marginBottom: "8px",
+    color: "#245ea8",
+    fontWeight: "bold",
   },
   button: {
-    width: '100%',
-    padding: '10px',
-    backgroundColor: '#245ea8',
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: '16px',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
+    width: "100%",
+    padding: "10px",
+    backgroundColor: "#245ea8",
+    color: "white",
+    fontWeight: "bold",
+    fontSize: "16px",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
   },
   table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginTop: '20px',
+    width: "100%",
+    borderCollapse: "collapse",
+    marginTop: "20px",
   },
   th: {
-    backgroundColor: '#f0f4f8',
-    color: '#333',
-    padding: '10px',
-    border: '1px solid #ddd',
+    backgroundColor: "#f0f4f8",
+    color: "#333",
+    padding: "10px",
+    border: "1px solid #ddd",
   },
   td: {
-    padding: '10px',
-    border: '1px solid #ddd',
-    textAlign: 'center',
+    padding: "10px",
+    border: "1px solid #ddd",
+    textAlign: "center",
   },
   searchBox: {
     display: "flex",
@@ -118,14 +118,13 @@ function StudentPage() {
   const regenerateLessons = async (studentId, updatedForm) => {
     const today = dayjs().format("YYYY-MM-DD");
 
-    // 오늘 이후 '일대일' 및 '독해' 수업만 삭제 (보강, 메모, 업무는 유지)
+    // 기존 '일대일' 및 '독해' 수업 삭제 (보강, 메모, 업무는 유지)
     await supabase
       .from("lessons")
       .delete()
       .eq("student_id", studentId)
       .eq("type", "일대일")
       .gte("date", today);
-
     await supabase
       .from("lessons")
       .delete()
@@ -166,6 +165,18 @@ function StudentPage() {
     }
   };
 
+  const createInitialTodo = async (studentId, updatedForm) => {
+    const firstDate = updatedForm.first_day || dayjs().format("YYYY-MM-DD");
+    const { error } = await supabase.from("todos").insert({
+      student_id: studentId,
+      teacher: updatedForm.teacher,
+      content: "첫 할일을 등록하세요 ✍️",
+      date: firstDate,
+      done: false,
+    });
+    if (error) console.error("할일 생성 오류:", error.message);
+  };
+
   const handleSubmit = async () => {
     const updatedForm = {
       ...form,
@@ -203,7 +214,10 @@ function StudentPage() {
         return;
       }
       const studentId = data[0].id;
+
+      // ✅ 수업 및 첫 할일 자동 생성
       await regenerateLessons(studentId, updatedForm);
+      await createInitialTodo(studentId, updatedForm);
     }
 
     setForm({

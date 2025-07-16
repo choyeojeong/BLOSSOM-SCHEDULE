@@ -429,7 +429,91 @@ export default function OneToOneClassPage() {
                       )}
                       {absentEditId === lesson.id ? (
                         <div style={{ marginTop: '4px' }}>
-                          {/* 결석 및 보강 입력 UI */}
+                          <textarea
+                            placeholder="결석 사유 입력"
+                            value={absentReasonMap[lesson.id]}
+                            onChange={(e) =>
+                              setAbsentReasonMap((prev) => ({
+                                ...prev,
+                                [lesson.id]: e.target.value,
+                              }))
+                            }
+                            rows={2}
+                            style={{ width: '100%', marginBottom: '4px' }}
+                          />
+                          <input
+                            type="date"
+                            value={newMakeupMap[lesson.id]?.date || ''}
+                            onChange={(e) =>
+                              setNewMakeupMap((prev) => ({
+                                ...prev,
+                                [lesson.id]: {
+                                  ...prev[lesson.id],
+                                  date: e.target.value,
+                                },
+                              }))
+                            }
+                            style={{ marginBottom: '4px', width: '100%' }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="보강 테스트시간"
+                            value={newMakeupMap[lesson.id]?.test_time || ''}
+                            onChange={(e) =>
+                              setNewMakeupMap((prev) => ({
+                                ...prev,
+                                [lesson.id]: {
+                                  ...prev[lesson.id],
+                                  test_time: e.target.value,
+                                },
+                              }))
+                            }
+                            style={{ marginBottom: '4px', width: '100%' }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="보강 수업시간"
+                            value={newMakeupMap[lesson.id]?.class_time || ''}
+                            onChange={(e) =>
+                              setNewMakeupMap((prev) => ({
+                                ...prev,
+                                [lesson.id]: {
+                                  ...prev[lesson.id],
+                                  class_time: e.target.value,
+                                },
+                              }))
+                            }
+                            style={{ marginBottom: '4px', width: '100%' }}
+                          />
+                          <div>
+                            <button
+                              onClick={() => saveAbsentAndMakeup(lesson)}
+                              style={{
+                                backgroundColor: '#00bcd4',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                marginRight: '4px',
+                              }}
+                            >
+                              저장
+                            </button>
+                            <button
+                              onClick={() => setAbsentEditId(null)}
+                              style={{
+                                backgroundColor: '#ccc',
+                                color: '#333',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              취소
+                            </button>
+                          </div>
                         </div>
                       ) : lesson.status === null ? (
                         <div style={{ marginTop: '4px' }}>

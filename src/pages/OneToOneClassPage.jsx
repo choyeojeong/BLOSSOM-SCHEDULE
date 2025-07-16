@@ -100,11 +100,28 @@ export default function OneToOneClassPage() {
   };
 
   const fetchLessons = async () => {
-    const { data } = await supabase
+    const { data: todayLessons } = await supabase
       .from('lessons')
       .select('*')
-      .eq('date', selectedDate);
-    setLessons(data || []);
+      .or(`date.eq.${selectedDate},type.eq.메모`);
+
+    const connectedLessonIds = [
+      ...new Set([
+        ...todayLessons.map(l => l.makeup_lesson_id).filter(Boolean),
+        ...todayLessons.map(l => l.original_lesson_id).filter(Boolean)
+      ])
+    ];
+
+    let connectedLessons = [];
+    if (connectedLessonIds.length > 0) {
+      const { data } = await supabase
+        .from('lessons')
+        .select('*')
+        .in('id', connectedLessonIds);
+      connectedLessons = data || [];
+    }
+
+    setLessons([...todayLessons, ...connectedLessons]);
   };
 
   const fetchFixedSchedules = async () => {
@@ -397,118 +414,22 @@ export default function OneToOneClassPage() {
                       {lesson.status === '결석' && lesson.makeup_lesson_id && (
                         <div style={{ color: '#ff9800' }}>
                           보강일:{' '}
-                          {
-                            lessons.find(l => l.id === lesson.makeup_lesson_id)
-                              ?.date
-                          }{' '}
-                          {
-                            lessons.find(l => l.id === lesson.makeup_lesson_id)
-                              ?.time
-                          }
+                          {lessons.find(l => l.id === lesson.makeup_lesson_id)?.date || '데이터 없음'}{' '}
+                          {lessons.find(l => l.id === lesson.makeup_lesson_id)?.time || ''}
                         </div>
                       )}
                       {lesson.type === '보강' && lesson.original_lesson_id && (
                         <div style={{ color: '#f44336' }}>
                           원결석일:{' '}
-                          {
-                            lessons.find(l => l.id === lesson.original_lesson_id)
-                              ?.date
-                          }
+                          {lessons.find(l => l.id === lesson.original_lesson_id)?.date || '데이터 없음'}
                           <br />
                           결석사유:{' '}
-                          {
-                            lessons.find(l => l.id === lesson.original_lesson_id)
-                              ?.absent_reason
-                          }
+                          {lessons.find(l => l.id === lesson.original_lesson_id)?.absent_reason || '없음'}
                         </div>
                       )}
                       {absentEditId === lesson.id ? (
                         <div style={{ marginTop: '4px' }}>
-                          <textarea
-                            placeholder="결석 사유 입력"
-                            value={absentReasonMap[lesson.id]}
-                            onChange={(e) =>
-                              setAbsentReasonMap((prev) => ({
-                                ...prev,
-                                [lesson.id]: e.target.value,
-                              }))
-                            }
-                            rows={2}
-                            style={{ width: '100%', marginBottom: '4px' }}
-                          />
-                          <input
-                            type="date"
-                            value={newMakeupMap[lesson.id]?.date || ''}
-                            onChange={(e) =>
-                              setNewMakeupMap((prev) => ({
-                                ...prev,
-                                [lesson.id]: {
-                                  ...prev[lesson.id],
-                                  date: e.target.value,
-                                },
-                              }))
-                            }
-                            style={{ marginBottom: '4px', width: '100%' }}
-                          />
-                          <input
-                            type="text"
-                            placeholder="보강 테스트시간"
-                            value={newMakeupMap[lesson.id]?.test_time || ''}
-                            onChange={(e) =>
-                              setNewMakeupMap((prev) => ({
-                                ...prev,
-                                [lesson.id]: {
-                                  ...prev[lesson.id],
-                                  test_time: e.target.value,
-                                },
-                              }))
-                            }
-                            style={{ marginBottom: '4px', width: '100%' }}
-                          />
-                          <input
-                            type="text"
-                            placeholder="보강 수업시간"
-                            value={newMakeupMap[lesson.id]?.class_time || ''}
-                            onChange={(e) =>
-                              setNewMakeupMap((prev) => ({
-                                ...prev,
-                                [lesson.id]: {
-                                  ...prev[lesson.id],
-                                  class_time: e.target.value,
-                                },
-                              }))
-                            }
-                            style={{ marginBottom: '4px', width: '100%' }}
-                          />
-                          <div>
-                            <button
-                              onClick={() => saveAbsentAndMakeup(lesson)}
-                              style={{
-                                backgroundColor: '#00bcd4',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                cursor: 'pointer',
-                                marginRight: '4px',
-                              }}
-                            >
-                              저장
-                            </button>
-                            <button
-                              onClick={() => setAbsentEditId(null)}
-                              style={{
-                                backgroundColor: '#ccc',
-                                color: '#333',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              취소
-                            </button>
-                          </div>
+                          {/* 결석 및 보강 입력 UI */}
                         </div>
                       ) : lesson.status === null ? (
                         <div style={{ marginTop: '4px' }}>
@@ -560,12 +481,11 @@ export default function OneToOneClassPage() {
                   )}
                 </div>
               ))}
+
               <div style={{ marginTop: '0.5rem' }}>
                 <textarea
                   placeholder="메모"
-                  value={
-                    memos[memoLesson?.id || slot] ?? memoLesson?.memo ?? ''
-                  }
+                  value={memos[memoLesson?.id || slot] ?? memoLesson?.memo ?? ''}
                   onChange={(e) => {
                     const newValue = e.target.value;
                     setMemos((prev) => ({

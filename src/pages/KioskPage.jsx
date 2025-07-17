@@ -90,13 +90,12 @@ function KioskPage() {
     // ✅ 모든 수업 출석 처리 (일대일과 독해 구분)
     const updates = lessons.map((lesson) => {
       if (lesson.type === "독해") {
-        // 🔥 독해수업: 클릭 시각 +1시간30분 자동
+        // ✅ 독해수업: 클릭 시각 +1시간30분 자동 기록
         return supabase
           .from("lessons")
           .update({
             status: "출석",
-            checkin_time: now,
-            end_time: endTime,
+            checkin_time: `${now} - ${endTime}`, // 시작~끝으로 저장
           })
           .eq("id", lesson.id);
       } else if (lesson.type === "일대일") {

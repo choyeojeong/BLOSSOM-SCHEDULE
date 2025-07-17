@@ -360,6 +360,8 @@ function ReadingClassPage() {
                               {lesson.makeup_lesson.time}
                             </div>
                           </>
+                        ) : lesson.status === "출석" ? (
+                          <span>{lesson.checkin_time}</span>
                         ) : editingLessonId === lesson.id ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                             <input
@@ -389,8 +391,6 @@ function ReadingClassPage() {
                               저장
                             </button>
                           </div>
-                        ) : lesson.status === "출석" ? (
-                          <span>{lesson.checkin_time}</span>
                         ) : (
                           <>
                             <button

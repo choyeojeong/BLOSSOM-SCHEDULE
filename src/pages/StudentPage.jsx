@@ -116,7 +116,7 @@ function StudentPage() {
   };
 
   const regenerateLessons = async (studentId, updatedForm) => {
-    const today = dayjs().format("YYYY-MM-DD");
+    const startDate = updatedForm.first_day || dayjs().format("YYYY-MM-DD");
 
     // 기존 '일대일' 및 '독해' 수업 삭제 (보강, 메모, 업무는 유지)
     await supabase
@@ -132,7 +132,7 @@ function StudentPage() {
       .eq("type", "독해")
       .gte("date", today);
 
-    const start = dayjs(today);
+    const start = dayjs(startDate);
     const end = start.add(7, "year");
     const readingTimes = JSON.parse(updatedForm.reading_times || "{}");
     const oneDays = updatedForm.one_day.split(",").map((d) => d.trim());

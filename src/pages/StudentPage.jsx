@@ -124,13 +124,13 @@ function StudentPage() {
       .delete()
       .eq("student_id", studentId)
       .eq("type", "일대일")
-      .gte("date", today);
+      .gte("date", startDate);
     await supabase
       .from("lessons")
       .delete()
       .eq("student_id", studentId)
       .eq("type", "독해")
-      .gte("date", today);
+      .gte("date", startDate);
 
     const start = dayjs(startDate);
     const end = start.add(7, "year");

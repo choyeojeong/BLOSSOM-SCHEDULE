@@ -125,7 +125,17 @@ export default function StudentTodoPage() {
   const addTodo = async (date) => {
     const content = newTodos[date]?.trim();
     if (!content) return;
-    await supabase.from("todos").insert([{ student_id: id, date, content }]);
+
+    // ✅ student.teacher 값까지 같이 저장
+    await supabase.from("todos").insert([
+      { 
+        student_id: id, 
+        date, 
+        content, 
+        teacher: student?.teacher || null // teacher 값 추가
+      }
+    ]);
+
     setNewTodos((prev) => ({ ...prev, [date]: "" }));
     fetchTodos();
   };

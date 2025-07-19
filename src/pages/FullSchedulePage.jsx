@@ -38,7 +38,7 @@ export default function FullSchedulePage() {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const weekStart = currentDate.startOf('week').add(1, 'day'); // 월요일
+  const weekStart = currentDate.startOf('isoWeek'); // ISO 기준 월요일 시작
   const weekDates = Array.from({ length: 6 }).map((_, i) =>
     weekStart.add(i, 'day').format('YYYY-MM-DD')
   );
@@ -46,7 +46,10 @@ export default function FullSchedulePage() {
   const fetchLessons = async () => {
     const { data, error } = await supabase
       .from('lessons')
-      .select('id, student_id, teacher, date, time, type, status, task, memo')
+      .select(`
+        id, student_id, teacher, date, time, type, status, task, memo,
+        students ( teacher )
+      `)
       .gte('date', weekStart.format('YYYY-MM-DD'))
       .lte('date', weekStart.add(5, 'day').format('YYYY-MM-DD'))
       .order('date', { ascending: true })
@@ -56,10 +59,14 @@ export default function FullSchedulePage() {
       console.error('레슨 불러오기 오류:', error.message);
     }
 
-    // ✅ 중복 제거
+    const processedLessons = (data || []).map((l) => ({
+      ...l,
+      teacher: l.teacher || l.students?.teacher || null,
+    }));
+
     const filteredLessons = [];
     const seenKeys = new Set();
-    (data || []).forEach((l) => {
+    processedLessons.forEach((l) => {
       const key = `${l.student_id}_${l.date}_${l.time}_${l.type}`;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
@@ -108,7 +115,7 @@ export default function FullSchedulePage() {
     if (task) {
       const { error } = await supabase.from('lessons').insert([
         {
-          student_id: null, // 업무는 학생 없이 저장
+          student_id: null,
           teacher: teacher,
           date: date,
           time: time,
@@ -120,7 +127,7 @@ export default function FullSchedulePage() {
         console.error('업무 저장 오류:', error.message);
         alert('업무 저장에 실패했습니다: ' + error.message);
       } else {
-        fetchLessons(); // 새로고침
+        fetchLessons();
       }
     }
   };
@@ -133,12 +140,13 @@ export default function FullSchedulePage() {
   };
 
   const getCellContent = (teacher, date, time) => {
-    const items = lessons.filter(
-      (l) =>
-        (l.teacher || studentsMap[l.student_id]?.teacher) === teacher &&
-        l.date === date &&
-        l.time === time
-    );
+const items = lessons.filter(
+  (l) =>
+    l.teacher === teacher &&
+    dayjs(l.date).isSame(dayjs(date), 'day') &&
+    l.time === time &&
+    l.type !== '메모' // ✅ 메모는 전체시간표에서 제외
+);
 
     return (
       <div>
@@ -156,13 +164,14 @@ export default function FullSchedulePage() {
               alignItems: 'center',
             }}
           >
-            <span>
-              {lesson.type === '업무'
-                ? `📌 업무: ${lesson.task || lesson.memo}`
-                : lesson.student_id && studentsMap[lesson.student_id]
-                ? `${studentsMap[lesson.student_id].name} (${studentsMap[lesson.student_id].school} ${studentsMap[lesson.student_id].grade})`
-                : '❗ 학생정보없음'}
-            </span>
+<span>
+  {lesson.type === '업무'
+    ? `📌 업무: ${lesson.task || lesson.memo}`
+    : lesson.student_id && studentsMap[lesson.student_id]
+    ? `${studentsMap[lesson.student_id].name} (${studentsMap[lesson.student_id].school} ${studentsMap[lesson.student_id].grade})`
+    : '❗ 학생정보없음'}
+</span>
+
             {lesson.type === '업무' && (
               <button
                 onClick={() => deleteTask(lesson.id)}

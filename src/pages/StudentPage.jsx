@@ -162,6 +162,7 @@ function StudentPage() {
       if (oneDays.includes(dayName)) {
         newLessons.push({
           student_id: studentId,
+          teacher: updatedForm.teacher,
           date: d.format("YYYY-MM-DD"),
           time: updatedForm.one_class_time,
           test_time: updatedForm.one_test_time,
@@ -173,6 +174,7 @@ function StudentPage() {
       if (readingTimes[dayName]?.trim()) {
         newLessons.push({
           student_id: studentId,
+          teacher: updatedForm.teacher,
           date: d.format("YYYY-MM-DD"),
           time: readingTimes[dayName],
           type: "독해",

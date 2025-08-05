@@ -2,58 +2,6 @@ import { useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import dayjs from "dayjs";
 
-const styles = {
-  container: {
-    backgroundColor: '#eef3f9',
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  box: {
-    backgroundColor: 'white',
-    padding: '40px',
-    borderRadius: '12px',
-    boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-    textAlign: 'center',
-    width: '320px',
-  },
-  title: {
-    marginBottom: '24px',
-    color: '#245ea8',
-    fontSize: '20px',
-    fontWeight: 'bold',
-  },
-  input: {
-    display: 'block',
-    width: '100%',
-    marginBottom: '12px',
-    padding: '10px',
-    fontSize: '16px',
-    border: '1px solid #ccc',
-    borderRadius: '6px',
-  },
-  button: {
-    width: '100%',
-    padding: '10px',
-    backgroundColor: '#245ea8',
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: '16px',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  success: {
-    marginTop: '12px',
-    color: 'green',
-  },
-  error: {
-    marginTop: '12px',
-    color: 'red',
-  },
-};
-
 function KioskPage() {
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
@@ -97,8 +45,12 @@ function KioskPage() {
           })
           .eq("id", lesson.id);
       } else if (lesson.type === "일대일") {
-        // ✅ 테스트시간 기준으로 지각 여부 계산
-        if (!lesson.test_time) {
+        const testTimeStr = lesson.test_time?.trim(); // ✅ null이나 공백 방지
+        const testDateTime = testTimeStr
+          ? dayjs(`${lesson.date} ${testTimeStr}`)
+          : null;
+
+        if (!testDateTime || !testDateTime.isValid()) {
           return supabase
             .from("lessons")
             .update({
@@ -110,20 +62,7 @@ function KioskPage() {
             .eq("id", lesson.id);
         }
 
-        const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
-        if (!testTime.isValid()) {
-          return supabase
-            .from("lessons")
-            .update({
-              status: "출석",
-              checkin_time: nowStr,
-              late_minutes: null,
-              on_time: null,
-            })
-            .eq("id", lesson.id);
-        }
-
-        const diff = now.diff(testTime, "minute");
+        const diff = now.diff(testDateTime, "minute");
         const isLate = diff > 0;
 
         return supabase
@@ -150,23 +89,21 @@ function KioskPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.box}>
-        <h1 style={styles.title}>📱 출석 체크</h1>
+    <div style={{ backgroundColor: '#eef3f9', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 0 10px rgba(0,0,0,0.1)', textAlign: 'center', width: '320px' }}>
+        <h1 style={{ marginBottom: '24px', color: '#245ea8', fontSize: '20px', fontWeight: 'bold' }}>📱 출석 체크</h1>
         <input
           type="text"
           placeholder="전화번호 입력"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          style={styles.input}
+          style={{ display: 'block', width: '100%', marginBottom: '12px', padding: '10px', fontSize: '16px', border: '1px solid #ccc', borderRadius: '6px' }}
         />
-        <button onClick={handleCheckIn} style={styles.button}>
+        <button onClick={handleCheckIn} style={{ width: '100%', padding: '10px', backgroundColor: '#245ea8', color: 'white', fontWeight: 'bold', fontSize: '16px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
           출석
         </button>
         {message && (
-          <div
-            style={message.startsWith("✅") ? styles.success : styles.error}
-          >
+          <div style={{ marginTop: '12px', color: message.startsWith("✅") ? "green" : "red" }}>
             {message}
           </div>
         )}

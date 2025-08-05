@@ -72,7 +72,6 @@ function KioskPage() {
 
     const today = dayjs().format("YYYY-MM-DD");
 
-    // ✅ 오늘 날짜의 모든 수업 가져오기
     const { data: lessons, error: lessonsError } = await supabase
       .from("lessons")
       .select("*")
@@ -84,26 +83,56 @@ function KioskPage() {
       return;
     }
 
-    const now = dayjs().format("HH:mm");
-    const endTime = dayjs().add(1, "hour").add(30, "minute").format("HH:mm");
+    const now = dayjs();
+    const nowStr = now.format("HH:mm");
+    const endTime = now.add(1, "hour").add(30, "minute").format("HH:mm");
 
-    // ✅ 모든 수업 출석 처리 (일대일과 독해 구분)
     const updates = lessons.map((lesson) => {
       if (lesson.type === "독해") {
-        // ✅ 독해수업: 클릭 시각 +1시간30분 자동 기록
         return supabase
           .from("lessons")
           .update({
             status: "출석",
-            checkin_time: `${now} - ${endTime}`, // 시작~끝으로 저장
+            checkin_time: `${nowStr} - ${endTime}`,
           })
           .eq("id", lesson.id);
       } else if (lesson.type === "일대일") {
-        // 📘 일대일수업: 테스트시간 기준, 시간 변경 없이 출석만 처리
+        // ✅ 테스트시간 기준으로 지각 여부 계산
+        if (!lesson.test_time) {
+          return supabase
+            .from("lessons")
+            .update({
+              status: "출석",
+              checkin_time: nowStr,
+              late_minutes: null,
+              on_time: null,
+            })
+            .eq("id", lesson.id);
+        }
+
+        const testTime = dayjs(`${lesson.date} ${lesson.test_time}`);
+        if (!testTime.isValid()) {
+          return supabase
+            .from("lessons")
+            .update({
+              status: "출석",
+              checkin_time: nowStr,
+              late_minutes: null,
+              on_time: null,
+            })
+            .eq("id", lesson.id);
+        }
+
+        const diff = now.diff(testTime, "minute");
+        const isLate = diff > 0;
+
         return supabase
           .from("lessons")
           .update({
             status: "출석",
+            checkin_time: nowStr,
+            late_minutes: isLate ? diff : 0,
+            on_time: !isLate,
           })
           .eq("id", lesson.id);
       }
@@ -111,15 +140,13 @@ function KioskPage() {
 
     try {
       await Promise.all(updates);
-      setMessage(
-        `✅ ${student.name}님 오늘 ${lessons.length}개 수업 출석 처리되었습니다.`
-      );
+      setMessage(`✅ ${student.name}님 오늘 ${lessons.length}개 수업 출석 처리되었습니다.`);
     } catch (err) {
       console.error(err);
       setMessage("❌ 출석 처리 중 오류 발생");
     }
 
-    setPhone(""); // 입력 초기화
+    setPhone("");
   };
 
   return (

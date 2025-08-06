@@ -33,19 +33,21 @@ function KioskPage() {
 
     const now = dayjs();
     const nowStr = now.format("HH:mm");
-    const endTime = now.add(1, "hour").add(30, "minute").format("HH:mm");
 
     const updates = lessons.map((lesson) => {
       if (lesson.type === "독해") {
+        const endTimeStr = now.add(1, "hour").add(30, "minute").format("HH:mm");
         return supabase
           .from("lessons")
           .update({
             status: "출석",
-            checkin_time: `${nowStr} - ${endTime}`,
+            checkin_time: `${nowStr} - ${endTimeStr}`,
           })
           .eq("id", lesson.id);
-      } else if (lesson.type === "일대일") {
-        const testTimeStr = lesson.test_time?.trim(); // ✅ null이나 공백 방지
+      }
+
+      if (lesson.type === "일대일") {
+        const testTimeStr = lesson.test_time?.trim();
         const testDateTime = testTimeStr
           ? dayjs(`${lesson.date} ${testTimeStr}`)
           : null;
@@ -75,6 +77,15 @@ function KioskPage() {
           })
           .eq("id", lesson.id);
       }
+
+      // 그 외 수업 타입에 대해선 기본 출석 처리
+      return supabase
+        .from("lessons")
+        .update({
+          status: "출석",
+          checkin_time: nowStr,
+        })
+        .eq("id", lesson.id);
     });
 
     try {
@@ -89,21 +100,73 @@ function KioskPage() {
   };
 
   return (
-    <div style={{ backgroundColor: '#eef3f9', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 0 10px rgba(0,0,0,0.1)', textAlign: 'center', width: '320px' }}>
-        <h1 style={{ marginBottom: '24px', color: '#245ea8', fontSize: '20px', fontWeight: 'bold' }}>📱 출석 체크</h1>
+    <div
+      style={{
+        backgroundColor: "#eef3f9",
+        height: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "white",
+          padding: "40px",
+          borderRadius: "12px",
+          boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+          textAlign: "center",
+          width: "320px",
+        }}
+      >
+        <h1
+          style={{
+            marginBottom: "24px",
+            color: "#245ea8",
+            fontSize: "20px",
+            fontWeight: "bold",
+          }}
+        >
+          📱 출석 체크
+        </h1>
         <input
           type="text"
           placeholder="전화번호 입력"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          style={{ display: 'block', width: '100%', marginBottom: '12px', padding: '10px', fontSize: '16px', border: '1px solid #ccc', borderRadius: '6px' }}
+          style={{
+            display: "block",
+            width: "100%",
+            marginBottom: "12px",
+            padding: "10px",
+            fontSize: "16px",
+            border: "1px solid #ccc",
+            borderRadius: "6px",
+          }}
         />
-        <button onClick={handleCheckIn} style={{ width: '100%', padding: '10px', backgroundColor: '#245ea8', color: 'white', fontWeight: 'bold', fontSize: '16px', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+        <button
+          onClick={handleCheckIn}
+          style={{
+            width: "100%",
+            padding: "10px",
+            backgroundColor: "#245ea8",
+            color: "white",
+            fontWeight: "bold",
+            fontSize: "16px",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
           출석
         </button>
         {message && (
-          <div style={{ marginTop: '12px', color: message.startsWith("✅") ? "green" : "red" }}>
+          <div
+            style={{
+              marginTop: "12px",
+              color: message.startsWith("✅") ? "green" : "red",
+            }}
+          >
             {message}
           </div>
         )}

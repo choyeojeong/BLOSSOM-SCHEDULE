@@ -356,7 +356,11 @@ function ReadingClassPage() {
     </div>
   </>
 )}
-
+{lesson.status === "결석" && !lesson.makeup_lesson && lesson.absent_reason && (
+  <div style={{ fontSize: "0.9rem", color: "#333" }}>
+    결석사유: {lesson.absent_reason}
+  </div>
+)}
                       {lesson.status === "출석" ? (
                         <span>{lesson.checkin_time}</span>
                       ) : editingLessonId === lesson.id ? (

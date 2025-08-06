@@ -361,53 +361,37 @@ function ReadingClassPage() {
     결석사유: {lesson.absent_reason}
   </div>
 )}
-                      {lesson.status === "출석" ? (
-                        <span>{lesson.checkin_time}</span>
-                      ) : editingLessonId === lesson.id ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <input
-                            type="text"
-                            placeholder="결석 사유"
-                            value={absentReason}
-                            onChange={(e) => setAbsentReason(e.target.value)}
-                            style={inputStyle}
-                          />
-                          <input
-                            type="date"
-                            value={makeupDate}
-                            onChange={(e) => setMakeupDate(e.target.value)}
-                            style={inputStyle}
-                          />
-                          <input
-                            type="text"
-                            placeholder="보강 시간 (HH:mm)"
-                            value={makeupTime}
-                            onChange={(e) => setMakeupTime(e.target.value)}
-                            style={inputStyle}
-                          />
-                          <button
-                            style={{ ...btnStyle, backgroundColor: "#4caf50" }}
-                            onClick={() => handleAbsentSave(lesson)}
-                          >
-                            저장
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            style={{ ...btnStyle, backgroundColor: "#4caf50" }}
-                            onClick={() => handleCheckIn(lesson)}
-                          >
-                            출석
-                          </button>
-                          <button
-                            style={{ ...btnStyle, backgroundColor: "#f44336" }}
-                            onClick={() => handleAbsentStart(lesson)}
-                          >
-                            결석
-                          </button>
-                        </>
-                      )}
+{lesson.status === "출석" ? (
+  <span>{lesson.checkin_time}</span>
+) : lesson.status === "결석" ? (
+  <>
+    {lesson.makeup_lesson ? (
+      <>
+        <div style={{ fontSize: "0.9rem", color: "#333" }}>
+          결석사유: {lesson.absent_reason}
+        </div>
+        <div style={{ fontSize: "0.9rem", color: "#333" }}>
+          보강일: {dayjs(lesson.makeup_lesson.date).format("YYYY-MM-DD")} {lesson.makeup_lesson.time}
+        </div>
+      </>
+    ) : (
+      lesson.absent_reason && (
+        <div style={{ fontSize: "0.9rem", color: "#333" }}>
+          결석사유: {lesson.absent_reason}
+        </div>
+      )
+    )}
+  </>
+) : editingLessonId === lesson.id ? (
+  <div>
+    {/* 결석 사유 + 보강 입력 UI */}
+  </div>
+) : (
+  <>
+    <button onClick={() => handleCheckIn(lesson)}>출석</button>
+    <button onClick={() => handleAbsentStart(lesson)}>결석</button>
+  </>
+)}
                     </td>
                     <td style={tdStyle}>
                       <button

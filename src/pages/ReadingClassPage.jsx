@@ -345,17 +345,6 @@ function ReadingClassPage() {
                           </div>
                         </>
                       )}
-                      {lesson.status === "결석" && lesson.makeup_lesson && (
-  <>
-    <div style={{ fontSize: "0.9rem", color: "#333" }}>
-      결석사유: {lesson.absent_reason}
-    </div>
-    <div style={{ fontSize: "0.9rem", color: "#333" }}>
-      보강일: {dayjs(lesson.makeup_lesson.date).format("YYYY-MM-DD")}{" "}
-      {lesson.makeup_lesson.time}
-    </div>
-  </>
-)}
 {lesson.status === "결석" && !lesson.makeup_lesson && lesson.absent_reason && (
   <div style={{ fontSize: "0.9rem", color: "#333" }}>
     결석사유: {lesson.absent_reason}
